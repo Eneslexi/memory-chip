@@ -70,7 +70,9 @@
   }
   .slot::before { top: -4px; left: -4px; border-right: 0; border-bottom: 0; }
   .slot::after  { bottom: -4px; right: -4px; border-left: 0; border-top: 0; }
-  .slot .sl-name { color: #bfefff; font-size: 12px; font-weight: 700; letter-spacing: 3px; }
+  .slot .sl-name { color: #bfefff; font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+                   text-align: center; line-height: 1.2; padding: 0 8px; max-width: 100%;
+                   overflow-wrap: break-word; }
   .slot .sl-cnt  { color: rgba(191,239,255,.75); font-size: 11px; letter-spacing: 1px; }
   .slot .sl-bar  { width: 62%; height: 3px; border-radius: 2px; background: rgba(103,232,249,.22); overflow: hidden; }
   .slot .sl-bar i { display: block; height: 100%; width: 0%; background: #67e8f9;
@@ -198,6 +200,37 @@
   .dot.pinch { width: 14px; height: 14px; background: rgba(255,214,240,.95); box-shadow: 0 0 26px #ffd6f0; }
   .dot.palm  { width: 40px; height: 40px; border-style: dashed; background: transparent; }
 
+  /* ---- albüm adı modalı (prompt() sayfayı donduruyordu; kendi penceremiz akıcı) ---- */
+  #albumModal { position: fixed; inset: 0; z-index: 170; display: none;
+                align-items: center; justify-content: center; background: rgba(1,2,10,.72);
+                backdrop-filter: blur(8px); }
+  #albumModal.on { display: flex; }
+  #amBox { background: rgba(6,12,28,.92); border: 1px solid rgba(103,232,249,.5);
+           border-radius: 16px; padding: 26px 26px 20px; width: min(340px, 86vw);
+           box-shadow: 0 0 40px rgba(103,232,249,.2); }
+  #amBox h3 { margin: 0 0 14px; color: #bfefff; font-size: 13px; font-weight: 700;
+              letter-spacing: 3px; text-transform: uppercase; }
+  #amInput { width: 100%; box-sizing: border-box; background: rgba(2,6,16,.8);
+             border: 1px solid rgba(103,232,249,.4); border-radius: 10px;
+             color: #eaffff; font-family: 'Orbitron', sans-serif; font-size: 15px;
+             letter-spacing: 2px; padding: 12px 14px; outline: none; text-transform: uppercase; }
+  #amInput:focus { border-color: #67e8f9; box-shadow: 0 0 14px rgba(103,232,249,.3); }
+  #amRow { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+  #amRow .chip { position: static; }
+
+  /* ---- MOBİL: dar ekranda butonlar üst üste binmesin ---- */
+  @media (max-width: 640px) {
+    .chip { font-size: 10.5px; padding: 8px 14px; letter-spacing: 1.5px; }
+    #chipCount { display: none; }              /* bilgi chip'i mobilde gereksiz */
+    #chipReset  { top: 14px; left: 12px; }
+    #chipUpload { top: 14px; right: 12px; }
+    #chipAlbum  { top: 60px; right: 12px; }
+    #chipGest   { bottom: 12px; font-size: 9px; max-width: 96vw;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .slot .sl-name { font-size: 9.5px; letter-spacing: 1px; }
+    .hud { display: none; }
+  }
+
   /* ---- başlat perdesi (ses + mobil kamera izni için kullanıcı dokunuşu şart) ---- */
   #startOverlay {
     position: fixed; inset: 0; z-index: 200; background: rgba(1,2,10,.9);
@@ -229,6 +262,16 @@
 <div class="chip" id="chipUpload">+ Fotoğraf Yükle</div>
 <div class="chip" id="chipAlbum">+ Albüm</div>
 <input type="file" id="fileIn" accept="image/*" multiple hidden>
+<div id="albumModal">
+  <div id="amBox">
+    <h3>Yeni Albüm</h3>
+    <input id="amInput" type="text" maxlength="18" placeholder="ALBÜM ADI">
+    <div id="amRow">
+      <div class="chip" id="amCancel">Vazgeç</div>
+      <div class="chip" id="amOk" style="color:#01020a;background:#67e8f9">Oluştur</div>
+    </div>
+  </div>
+</div>
 <div id="albumView">
   <div class="chip" id="avClose">Kapat ✕</div>
   <div id="bmDial">
@@ -282,6 +325,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script>
 const IS_MOBILE = Math.min(innerWidth, innerHeight) < 640;
+if (IS_MOBILE) addEventListener('DOMContentLoaded', () => {
+  document.getElementById('chipGest').textContent = '👌 Tut · 🤏 Büyüt · 🖐️ Bırak · ✋ Gezdir';
+});
 const S = Math.min(1, innerWidth / 980) * (IS_MOBILE ? 1.15 : 1); // genel ölçek
 const LERP = 0.16, DAMP = 0.985;
 const cards = [];
@@ -685,14 +731,24 @@ document.getElementById('fileIn').addEventListener('change', async e => {
   sndShuffle();
 });
 
-// ---- yeni albüm ----
-document.getElementById('chipAlbum').onclick = async () => {
-  const name = (prompt('Albüm adı:') || '').trim().toUpperCase();
+// ---- yeni albüm (kendi modalımız: prompt() gibi sayfayı/kamerayı dondurmaz) ----
+document.getElementById('chipAlbum').onclick = () => {
+  document.getElementById('albumModal').classList.add('on');
+  document.getElementById('amInput').value = '';
+  setTimeout(() => document.getElementById('amInput').focus(), 60);
+};
+document.getElementById('amCancel').onclick = () =>
+  document.getElementById('albumModal').classList.remove('on');
+async function amCreate() {
+  const name = document.getElementById('amInput').value.trim().toUpperCase();
+  document.getElementById('albumModal').classList.remove('on');
   if (!name) return;
   const id = await DB.add('albums', { label: name });
   createSlot({ id, label: name });
   sndGrab();
-};
+}
+document.getElementById('amOk').onclick = amCreate;
+document.getElementById('amInput').addEventListener('keydown', e => { if (e.key === 'Enter') amCreate(); });
 
 // ================= YILDIZ + METEOR + TOZ =================
 const st = document.getElementById('stars'), sctx = st.getContext('2d');
