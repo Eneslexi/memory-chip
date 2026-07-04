@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Memory Chip — Anılarını Elinle Yönet</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #01020a;
+               font-family: 'Orbitron', 'Segoe UI', sans-serif; touch-action: none; }
+
+  #cam { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover;
+         transform: scaleX(-1);
+         filter: brightness(.98) saturate(1.06) contrast(1.03); }  /* referans gibi: doğal aydınlık */
+  #nebula { position: fixed; inset: -20%; z-index: 2; pointer-events: none; opacity: .12;
+            background:
+              radial-gradient(38% 30% at 75% 18%, rgba(124, 58, 237, .34), transparent 70%),
+              radial-gradient(45% 36% at 12% 78%, rgba(6, 182, 212, .26), transparent 70%),
+              radial-gradient(30% 26% at 40% 35%, rgba(37, 99, 235, .22), transparent 70%),
+              radial-gradient(24% 20% at 88% 70%, rgba(217, 70, 239, .16), transparent 70%);
+            filter: blur(14px);
+            animation: nebdrift 46s ease-in-out infinite alternate; }
+  @keyframes nebdrift {
+    0%   { transform: translate(0,0) scale(1); }
+    50%  { transform: translate(2.5%,-2%) scale(1.06); }
+    100% { transform: translate(-2%,2.5%) scale(1.02); }
+  }
+  #tint { position: fixed; inset: 0; z-index: 2; pointer-events: none;
+          background: radial-gradient(ellipse at 50% 46%, transparent 62%, rgba(4, 6, 16, .22) 100%); } /* çok hafif vinyet */
+  #scan { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: .018;
+          background: repeating-linear-gradient(0deg, #9bd9ff 0 1px, transparent 1px 5px); }
+  #stars { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
+  #fx    { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+  #hand  { position: fixed; inset: 0; z-index: 45; pointer-events: none; }
+
+  .card {
+    position: fixed; z-index: 10; background: #fdfdfb;
+    border-radius: 3px; box-sizing: border-box;
+    box-shadow: 0 10px 34px rgba(0,0,0,.55);
+    will-change: transform, opacity; user-select: none;
+    opacity: 0; transition: opacity .8s ease, box-shadow .3s ease;
+  }
+  .card.in { opacity: 1; }
+  .card img { display: block; width: 100%; aspect-ratio: 4/3.35; object-fit: cover; pointer-events: none; }
+  .card .lbl {
+    font-family: 'Caveat', cursive; font-weight: 600; color: #1c2333;
+    text-align: center; line-height: 1;
+    padding: 4% 2% 5% 2%; white-space: nowrap; overflow: hidden;
+  }
+  .card.held {
+    box-shadow: 0 0 26px rgba(163,216,255,.5), 0 0 90px rgba(163,216,249,.22), 0 30px 90px rgba(0,0,0,.75);
+    z-index: 20;
+  }
+
+  /* ---- sol arşiv yuvaları: elektronik sci-fi çerçeveler ---- */
+  .slot {
+    position: fixed; z-index: 30; box-sizing: border-box;
+    border: 1.5px solid rgba(103,232,249,.5); border-radius: 10px;
+    background:
+      linear-gradient(135deg, rgba(103,232,249,.10), rgba(12,20,44,.55) 55%),
+      rgba(4,10,24,.45);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 0 18px rgba(103,232,249,.14), inset 0 0 22px rgba(103,232,249,.07);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; transition: box-shadow .18s, border-color .18s, background .18s;
+  }
+  .slot::before, .slot::after { /* köşe braketleri */
+    content: ''; position: absolute; width: 14px; height: 14px;
+    border: 2px solid rgba(103,232,249,.85);
+  }
+  .slot::before { top: -4px; left: -4px; border-right: 0; border-bottom: 0; }
+  .slot::after  { bottom: -4px; right: -4px; border-left: 0; border-top: 0; }
+  .slot .sl-name { color: #bfefff; font-size: 12px; font-weight: 700; letter-spacing: 3px; }
+  .slot .sl-cnt  { color: rgba(191,239,255,.75); font-size: 11px; letter-spacing: 1px; }
+  .slot .sl-bar  { width: 62%; height: 3px; border-radius: 2px; background: rgba(103,232,249,.22); overflow: hidden; }
+  .slot .sl-bar i { display: block; height: 100%; width: 0%; background: #67e8f9;
+                    box-shadow: 0 0 8px #67e8f9; transition: width .4s ease; }
+  .slot.hot {
+    border-color: #a5f3fc;
+    background: linear-gradient(135deg, rgba(103,232,249,.28), rgba(12,20,44,.6) 60%), rgba(4,10,24,.5);
+    box-shadow: 0 0 34px rgba(103,232,249,.55), inset 0 0 30px rgba(103,232,249,.2);
+  }
+  .slot.gulp { animation: gulp .45s ease; }
+  @keyframes gulp { 35% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+  .chip {
+    position: fixed; z-index: 60;
+    background: rgba(4,10,24,.55); color: #bfefff;
+    border: 1px solid rgba(103,232,249,.45); border-radius: 999px;
+    padding: 9px 20px; font-size: 12.5px; font-weight: 700;
+    letter-spacing: 2.5px; text-transform: uppercase;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 18px rgba(103,232,249,.12), inset 0 0 14px rgba(103,232,249,.06);
+    cursor: pointer; transition: box-shadow .2s, background .2s;
+  }
+  .chip:hover { background: rgba(9,20,44,.75); box-shadow: 0 0 26px rgba(103,232,249,.3); }
+  /* parmak imleci üstündeyken: havadan basılabilir geri bildirimi */
+  .chip.hov, .slot.hov { border-color: #a5f3fc;
+    box-shadow: 0 0 30px rgba(103,232,249,.5), inset 0 0 16px rgba(103,232,249,.15); }
+  .chip.press, .slot.press { animation: airpress .3s ease; }
+  @keyframes airpress { 40% { transform: scale(.93); } 100% { transform: scale(1); } }
+  #chipReset  { top: 20px; left: 20px; }
+  #chipCount  { top: 20px; left: 50%; transform: translateX(-50%); cursor: default; }
+  #chipUpload { top: 20px; right: 20px; color: #01020a; background: #67e8f9;
+                box-shadow: 0 0 22px rgba(103,232,249,.5); }
+  #chipAlbum  { top: 74px; right: 20px; }
+  #chipGest   { bottom: 20px; left: 50%; transform: translateX(-50%); cursor: default; font-size: 11px; white-space: nowrap; }
+
+  /* ---- albüm görüntüleyici: BLACK MIRROR "grain" kadranı ---- */
+  #albumView { position: fixed; inset: 0; z-index: 150; display: none;
+               background:
+                 radial-gradient(ellipse at 60% 45%, rgba(64,40,48,.30), transparent 60%),
+                 radial-gradient(ellipse at 50% 50%, rgba(10,7,9,.92), rgba(3,2,4,.99) 85%);
+               backdrop-filter: blur(12px) saturate(.6); overflow: hidden; }
+  #albumView.on { display: block; }
+  #avClose { position: fixed; top: 20px; right: 20px; z-index: 165; }
+  #bmDial { position: absolute; left: 34%; top: 50%; transform: translate(-50%,-50%);
+            width: min(64vh, 58vw); aspect-ratio: 1; z-index: 155; }
+  #bmDial svg { width: 100%; height: 100%; display: block; }
+  #bmCenter { position: absolute; inset: 0; display: flex; flex-direction: column;
+              align-items: center; justify-content: center; gap: 6px; pointer-events: none;
+              font-family: 'Segoe UI', 'Helvetica Neue', sans-serif; }
+  #bmName { color: #f4f2f0; font-size: clamp(15px, 2.1vh, 22px); font-weight: 400; letter-spacing: 2.5px; }
+  #bmIdx  { color: rgba(244,242,240,.85); font-size: clamp(11px, 1.5vh, 15px); letter-spacing: 2px; }
+  #bmSub  { color: rgba(244,242,240,.5); font-size: clamp(9px, 1.2vh, 12px); letter-spacing: 4px; margin-top: 2px; }
+  #bmRed  { position: absolute; right: 26.5%; top: 47%; width: 7px; height: 7px; border-radius: 50%;
+            background: #e11d2e; box-shadow: 0 0 8px #e11d2e; }
+  #bmStrip { position: absolute; right: -4vw; top: 50%; width: 46vw; height: 0;
+             perspective: 1000px; perspective-origin: 20% 50%; z-index: 152; }
+  .bmItem { position: absolute; right: 0; top: 0; width: min(24vw, 340px); aspect-ratio: 16/10;
+            transform-style: preserve-3d; will-change: transform, opacity;
+            background: #000; overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,.7); border: 1px solid rgba(255,255,255,.12); }
+  .bmItem img { width: 100%; height: 100%; object-fit: cover; display: block;
+                filter: saturate(.85) contrast(1.05); }
+  #bmEmpty { position: absolute; left: 34%; top: 72%; transform: translateX(-50%);
+             color: rgba(244,242,240,.55); font-size: 12px; letter-spacing: 3px; z-index: 156; }
+
+  /* ---- AIRCHIP intro (Black Mirror ruhu, kodla) ---- */
+  #introSeq { position: fixed; inset: 0; z-index: 190; background: #000;
+              display: flex; align-items: center; justify-content: center;
+              transition: opacity 1.2s ease, transform 1.2s cubic-bezier(.6,0,.2,1); }
+  #introSeq.out { opacity: 0; transform: scale(7); pointer-events: none; }
+  #introRing { position: absolute; width: min(30vh, 30vw); aspect-ratio: 1; opacity: 0;
+               transition: opacity .9s ease; }
+  #introRing.on { opacity: 1; }
+  #introRing svg { width: 100%; height: 100%; animation: ringspin 7s linear infinite; }
+  @keyframes ringspin { to { transform: rotate(360deg); } }
+  #introTitle { position: absolute; text-align: center; opacity: 0; }
+  #introTitle.on { opacity: 1; }
+  #introTitle .t1 { color: #f4f2f0; font-family: 'Segoe UI', sans-serif; font-weight: 700;
+                    font-size: clamp(34px, 7vw, 74px); letter-spacing: 14px; }
+  #introTitle.on .t1 { animation: glitch 2.2s steps(1) infinite; }
+  @keyframes glitch {
+    0%, 100% { text-shadow: 0 0 18px rgba(244,242,240,.35); transform: none; }
+    7%  { text-shadow: -3px 0 #ff2a4d, 3px 0 #2ad9ff, 0 0 18px rgba(244,242,240,.35); }
+    9%  { text-shadow: 0 0 18px rgba(244,242,240,.35); transform: translateX(2px); }
+    41% { text-shadow: 3px 0 #ff2a4d, -3px 0 #2ad9ff; transform: skewX(2deg); }
+    43% { text-shadow: 0 0 18px rgba(244,242,240,.35); transform: none; }
+    73% { text-shadow: -2px 1px #ff2a4d, 2px -1px #2ad9ff; }
+    75% { text-shadow: 0 0 18px rgba(244,242,240,.35); }
+  }
+  #introTitle .t2 { color: rgba(244,242,240,.55); font-family: 'Segoe UI', sans-serif;
+                    font-size: clamp(11px, 1.6vw, 15px); letter-spacing: 8px; margin-top: 14px; }
+  #introCrack { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+  #introCrack.flash { animation: crackflash .5s ease; }
+  @keyframes crackflash { 12% { opacity: 1; } 100% { opacity: 0; } }
+
+  .hud { position: fixed; z-index: 5; width: 46px; height: 46px; pointer-events: none;
+         border: 1.5px solid rgba(103,232,249,.3); }
+  #h2 { top: 74px; right: 16px; border-left: 0;  border-bottom: 0; }
+  #h4 { bottom: 74px; right: 16px; border-left: 0;  border-top: 0; }
+
+  .dot { position: fixed; width: 26px; height: 26px; border-radius: 50%;
+         border: 2px solid rgba(255,214,240,.9); background: rgba(255,214,240,.12);
+         box-shadow: 0 0 16px rgba(255,190,235,.6);
+         transform: translate(-50%,-50%); pointer-events: none; z-index: 70; display: none;
+         transition: width .15s, height .15s, background .15s; }
+  .dot.pinch { width: 14px; height: 14px; background: rgba(255,214,240,.95); box-shadow: 0 0 26px #ffd6f0; }
+  .dot.palm  { width: 40px; height: 40px; border-style: dashed; background: transparent; }
+
+  /* ---- başlat perdesi (ses + mobil kamera izni için kullanıcı dokunuşu şart) ---- */
+  #startOverlay {
+    position: fixed; inset: 0; z-index: 200; background: rgba(1,2,10,.9);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+  }
+  #startOverlay h1 { color: #dff6ff; font-size: clamp(18px, 4vw, 30px); font-weight: 700;
+                     letter-spacing: 6px; text-transform: uppercase; text-align: center;
+                     text-shadow: 0 0 24px rgba(103,232,249,.6); margin: 0 20px; }
+  #startBtn {
+    font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 4px;
+    color: #01020a; background: #67e8f9; border: 0; border-radius: 999px;
+    padding: 18px 52px; cursor: pointer;
+    box-shadow: 0 0 34px rgba(103,232,249,.7), 0 0 110px rgba(103,232,249,.25);
+  }
+</style>
+</head>
+<body>
+<video id="cam" autoplay playsinline muted></video>
+<div id="nebula"></div>
+<div id="tint"></div>
+<div id="scan"></div>
+<canvas id="stars"></canvas>
+<canvas id="fx"></canvas>
+<canvas id="hand"></canvas>
+<div class="hud" id="h2"></div>
+<div class="hud" id="h4"></div>
+<div class="chip" id="chipReset">Sıfırla</div>
+<div class="chip" id="chipCount">Anılar</div>
+<div class="chip" id="chipUpload">+ Fotoğraf Yükle</div>
+<div class="chip" id="chipAlbum">+ Albüm</div>
+<input type="file" id="fileIn" accept="image/*" multiple hidden>
+<div id="albumView">
+  <div class="chip" id="avClose">Kapat ✕</div>
+  <div id="bmDial">
+    <svg viewBox="0 0 480 480">
+      <circle cx="240" cy="240" r="176" fill="none" stroke="rgba(244,242,240,.5)" stroke-width="1.2"/>
+      <circle cx="240" cy="240" r="154" fill="none" stroke="rgba(244,242,240,.55)" stroke-width="2" stroke-dasharray="3 9"/>
+      <circle cx="240" cy="240" r="132" fill="none" stroke="rgba(244,242,240,.35)" stroke-width="5" stroke-dasharray="14 12"/>
+      <circle cx="240" cy="240" r="110" fill="none" stroke="rgba(244,242,240,.45)" stroke-width="1.5" stroke-dasharray="2 12"/>
+      <circle id="bmProg" cx="240" cy="240" r="176" fill="none" stroke="#f4f2f0" stroke-width="4"
+              stroke-linecap="round" transform="rotate(-90 240 240)"/>
+      <circle cx="240" cy="240" r="56" fill="#262626" stroke="rgba(244,242,240,.3)" stroke-width="1.5"/>
+    </svg>
+    <div id="bmCenter"><div id="bmName"></div><div id="bmIdx"></div><div id="bmSub">MEMORY CHIP</div></div>
+    <i id="bmRed"></i>
+  </div>
+  <div id="bmStrip"></div>
+  <div id="bmEmpty" style="display:none">BU ALBÜM BOŞ — FOTOĞRAFI ELİNLE YUVAYA BIRAK</div>
+</div>
+<div id="introSeq" style="display:none">
+  <div id="introRing">
+    <svg viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="86" fill="none" stroke="rgba(244,242,240,.7)" stroke-width="2" stroke-dasharray="10 14"/>
+      <circle cx="100" cy="100" r="66" fill="none" stroke="rgba(244,242,240,.4)" stroke-width="1" stroke-dasharray="2 8"/>
+      <circle cx="100" cy="100" r="86" fill="none" stroke="#f4f2f0" stroke-width="3" stroke-linecap="round"
+              stroke-dasharray="80 460" />
+    </svg>
+  </div>
+  <div id="introTitle"><div class="t1">MEMORY CHIP</div><div class="t2">ANI ARŞİVİ</div></div>
+  <svg id="introCrack" viewBox="0 0 100 60" preserveAspectRatio="none">
+    <g stroke="rgba(255,255,255,.9)" stroke-width=".18" fill="none">
+      <path d="M8,60 L26,38 L31,40 L44,22 L47,26 L58,8 L63,12 L78,0"/>
+      <path d="M26,38 L20,30 M44,22 L38,16 M58,8 L52,2 M47,26 L55,30 L70,24"/>
+      <path d="M31,40 L36,48 L52,54 M63,12 L74,18 L88,14"/>
+    </g>
+  </svg>
+</div>
+<div class="chip" id="chipGest">👌 Tut · 🤏↔️ Aç = Büyüt · 🖐️ Aç = Bırak · ✋ Kaydır · 🖐️⬆ Düzenle</div>
+<div class="dot" id="dot0"></div>
+<div class="dot" id="dot1"></div>
+<div id="startOverlay"><h1>MEMORY CHIP</h1><button id="startBtn">BAŞLAT</button></div>
+
+<script src="photos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script>
+const IS_MOBILE = Math.min(innerWidth, innerHeight) < 640;
+const S = Math.min(1, innerWidth / 980) * (IS_MOBILE ? 1.15 : 1); // genel ölçek
+const LERP = 0.16, DAMP = 0.985;
+const cards = [];
+let held = null, holdHand = -1, scaleBase = null, grabHandSize = null;
+let flowX = 0, flowY = 0, palmSeen = false;
+let layoutMode = 0, lastShuffle = 0;
+let hotSlotCur = null, hotSince = 0; // yuvada bekleme sayacı (üzerinden geçerken yutmayı önler)
+
+// ================= SES MOTORU (WebAudio sentez — dosya yok) =================
+let AC = null, noiseBuf = null, lastWhoosh = 0;
+function audioInit() {
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 1.2, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+}
+function sndWhoosh(intensity) { // Black Mirror tarzı: koyu, yumuşak, elektronik "vuum"
+  if (!AC) return;
+  const now = performance.now();
+  if (now - lastWhoosh < 240) return;
+  lastWhoosh = now;
+  const t = AC.currentTime, i = Math.min(1, intensity);
+  // gövde: alçak sinüs kayması (dijital "whum")
+  const o = AC.createOscillator(), og = AC.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(150 + 110 * i, t);
+  o.frequency.exponentialRampToValueAtTime(58, t + .34);
+  og.gain.setValueAtTime(0.0001, t);
+  og.gain.exponentialRampToValueAtTime(0.14 + 0.1 * i, t + .05);
+  og.gain.exponentialRampToValueAtTime(0.0001, t + .38);
+  o.connect(og).connect(AC.destination); o.start(t); o.stop(t + .4);
+  // beşinci üstte ikinci katman: elektronik parlaklık, çok kısık
+  const o2 = AC.createOscillator(), og2 = AC.createGain();
+  o2.type = 'triangle';
+  o2.frequency.setValueAtTime((150 + 110 * i) * 1.5, t);
+  o2.frequency.exponentialRampToValueAtTime(90, t + .3);
+  og2.gain.setValueAtTime(0.0001, t);
+  og2.gain.exponentialRampToValueAtTime(0.05 + 0.04 * i, t + .04);
+  og2.gain.exponentialRampToValueAtTime(0.0001, t + .32);
+  o2.connect(og2).connect(AC.destination); o2.start(t); o2.stop(t + .35);
+  // hava: alçak-geçirenle iyice yumuşatılmış az miktar doku (tizler kesik = gıcıklık yok)
+  const src = AC.createBufferSource(); src.buffer = noiseBuf;
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = .7;
+  lp.frequency.setValueAtTime(700 + 500 * i, t);
+  lp.frequency.exponentialRampToValueAtTime(160, t + .32);
+  const ng = AC.createGain();
+  ng.gain.setValueAtTime(0.0001, t);
+  ng.gain.exponentialRampToValueAtTime(0.07 + 0.05 * i, t + .05);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t + .34);
+  src.connect(lp).connect(ng).connect(AC.destination); src.start(t); src.stop(t + .38);
+}
+function sndGrab() { // tutma: kısa dijital blip
+  if (!AC) return;
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(430, t);
+  o.frequency.exponentialRampToValueAtTime(940, t + .09);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.14, t + .02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + .14);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + .16);
+}
+function sndAbsorb() { // yuvaya emilme: aşağı kayan çığlık + hava
+  if (!AC) return;
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(760, t);
+  o.frequency.exponentialRampToValueAtTime(96, t + .4);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.2, t + .04);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + .46);
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600;
+  o.connect(lp).connect(g).connect(AC.destination); o.start(t); o.stop(t + .5);
+  const src = AC.createBufferSource(); src.buffer = noiseBuf;
+  const bp = AC.createBiquadFilter(); bp.type = 'bandpass';
+  bp.frequency.setValueAtTime(2400, t); bp.frequency.exponentialRampToValueAtTime(300, t + .35);
+  const g2 = AC.createGain();
+  g2.gain.setValueAtTime(0.0001, t);
+  g2.gain.exponentialRampToValueAtTime(0.12, t + .03);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t + .4);
+  src.connect(bp).connect(g2).connect(AC.destination); src.start(t); src.stop(t + .45);
+}
+let lastScrub = 0;
+function sndScrub() { // Black Mirror grain kaydırma: havalı "şık" + minik mekanik tık
+  if (!AC) return;
+  const now = performance.now();
+  if (now - lastScrub < 70) return;
+  lastScrub = now;
+  const t = AC.currentTime;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf;
+  src.playbackRate.value = 0.9 + Math.random() * 0.25;   // her karede minik varyasyon
+  const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.2;
+  bp.frequency.setValueAtTime(2100, t);
+  bp.frequency.exponentialRampToValueAtTime(900, t + .07);
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.12, t + .012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + .09);
+  src.connect(bp).connect(g).connect(AC.destination); src.start(t); src.stop(t + .1);
+  const o = AC.createOscillator(); o.type = 'square'; o.frequency.value = 3100;
+  const g2 = AC.createGain();
+  g2.gain.setValueAtTime(0.028, t);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t + .025);
+  o.connect(g2).connect(AC.destination); o.start(t); o.stop(t + .03);
+}
+function sndShuffle() { // dizilim: çift süpürme + tiz ping
+  if (!AC) return;
+  sndWhoosh(1);
+  const t = AC.currentTime + .12;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(1180, t);
+  o.frequency.exponentialRampToValueAtTime(1560, t + .1);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.1, t + .03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + .3);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + .32);
+}
+
+// ================= KALICI DEPO (IndexedDB) =================
+const DB = {
+  db: null,
+  mem: { photos: [], albums: [] },  // depolama yoksa bellek-içi yedek (gizli mod, kısıtlı ortamlar)
+  memId: 1,
+  open() {
+    const idb = new Promise((res) => {
+      try {
+        const r = indexedDB.open('anilar', 1);
+        r.onupgradeneeded = e => {
+          const d = e.target.result;
+          d.createObjectStore('photos', { keyPath: 'id', autoIncrement: true });
+          d.createObjectStore('albums', { keyPath: 'id', autoIncrement: true });
+        };
+        r.onsuccess = e => { DB.db = e.target.result; res(); };
+        r.onerror = () => res();   // hata = kalıcılıksız devam
+        r.onblocked = () => res();
+      } catch (e) { res(); }
+    });
+    const timeout = new Promise(res => setTimeout(res, 1500)); // asla sonsuza dek bekleme
+    return Promise.race([idb, timeout]);
+  },
+  op(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const tx = DB.db.transaction(store, mode);
+      const rq = fn(tx.objectStore(store));
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = rej;
+    });
+  },
+  add(s, v) {
+    if (!DB.db) { v.id = DB.memId++; DB.mem[s].push(v); return Promise.resolve(v.id); }
+    return DB.op(s, 'readwrite', o => o.add(v));
+  },
+  put(s, v) {
+    if (!DB.db) return Promise.resolve();
+    return DB.op(s, 'readwrite', o => o.put(v));
+  },
+  all(s) {
+    if (!DB.db) return Promise.resolve([...DB.mem[s]]);
+    return DB.op(s, 'readonly', o => o.getAll());
+  },
+};
+
+// ================= SOL ARŞİV YUVALARI (dinamik, DB'den) =================
+let SLOTS = [];
+const slotW = Math.round(150 * S), slotH = Math.round(104 * S), slotGap = Math.round(52 * S); // yuvalar ayrık: yanlış albüme atma azalır
+function slotUI(s) {
+  s.el.querySelector('.sl-cnt').textContent = `${s.count} ANI`;
+  s.el.querySelector('.sl-bar i').style.width = Math.min(100, s.count * 12) + '%';
+}
+function createSlot(rec) {
+  const s = { id: rec.id, label: rec.label, count: 0 };
+  const el = document.createElement('div');
+  el.className = 'slot';
+  el.innerHTML = `<div class="sl-name">${s.label}</div><div class="sl-bar"><i></i></div><div class="sl-cnt">0 ANI</div>`;
+  el.style.width = slotW + 'px'; el.style.height = slotH + 'px';
+  el.addEventListener('click', () => openAlbum(s));
+  document.body.appendChild(el);
+  s.el = el;
+  SLOTS.push(s);
+  layoutSlots();
+  return s;
+}
+function layoutSlots() {
+  const totalH = SLOTS.length * slotH + (SLOTS.length - 1) * slotGap;
+  const y0 = Math.max(96, (innerHeight - totalH) / 2);
+  SLOTS.forEach((s, i) => {
+    s.x = 16; s.y = y0 + i * (slotH + slotGap);
+    s.el.style.left = s.x + 'px'; s.el.style.top = s.y + 'px';
+  });
+}
+addEventListener('resize', layoutSlots);
+
+// ---- albüm görüntüleyici: grain kadranı + sağda yatık ekran şeridi ----
+let bmItems = [], bmPos = 0, bmPosS = 0, bmRAF = null, bmLastIdx = -1;
+const BM_PROG = () => document.getElementById('bmProg');
+function bmRender() {
+  const n = bmItems.length;
+  bmPos = Math.max(0, Math.min(n - 1, bmPos));
+  bmPosS += (bmPos - bmPosS) * 0.12;
+  const R = innerHeight * 0.44;
+  bmItems.forEach((it, i) => {
+    const a = (i - bmPosS) * 0.5;
+    const y = Math.sin(a) * R;
+    const x = (1 - Math.cos(a)) * innerWidth * 0.09;
+    const sc = Math.max(0.5, Math.cos(a) * 0.95);
+    const op = Math.max(0, 1.25 - Math.abs(a) * 0.75);
+    it.el.style.transform =
+      `translate3d(${x}px, ${y - it.h / 2}px, 0) rotateY(-34deg) rotateZ(${a * 7}deg) scale(${sc})`;
+    it.el.style.opacity = op;
+    it.el.style.zIndex = Math.round(100 + Math.cos(a) * 50);
+  });
+  const cur = Math.round(bmPosS);
+  if (cur !== bmLastIdx && bmItems.length) {
+    bmLastIdx = cur;
+    document.getElementById('bmIdx').textContent = `${cur + 1} / ${n}`;
+    sndScrub();   // grain kaydırma sesi
+  }
+  const C = 2 * Math.PI * 176;
+  const frac = n > 1 ? bmPos / (n - 1) : 0;
+  BM_PROG().setAttribute('stroke-dasharray', `${Math.max(10, C * frac * 0.999)} ${C}`);
+  bmRAF = requestAnimationFrame(bmRender);
+}
+async function openAlbum(slot) {
+  const v = document.getElementById('albumView');
+  document.getElementById('bmName').textContent = slot.label;
+  const strip = document.getElementById('bmStrip');
+  strip.innerHTML = ''; bmItems = []; bmPos = 0; bmPosS = 0; bmLastIdx = -1;
+  const mine = (await DB.all('photos')).filter(p => p.album === slot.id);
+  document.getElementById('bmEmpty').style.display = mine.length ? 'none' : 'block';
+  document.getElementById('bmIdx').textContent = mine.length ? `1 / ${mine.length}` : 'BOŞ';
+  mine.forEach(p => {
+    const d = document.createElement('div'); d.className = 'bmItem';
+    d.innerHTML = `<img src="${p.data}">`;
+    strip.appendChild(d);
+    bmItems.push({ el: d, h: d.offsetHeight || 200 });
+  });
+  bmItems.forEach(it => it.h = it.el.offsetHeight);
+  v.classList.add('on');
+  if (bmRAF) cancelAnimationFrame(bmRAF);
+  bmRender();
+}
+document.getElementById('avClose').onclick = () => {
+  document.getElementById('albumView').classList.remove('on');
+  if (bmRAF) { cancelAnimationFrame(bmRAF); bmRAF = null; }
+};
+// kaydırma: tekerlek + dikey sürükleme (mobil dahil)
+addEventListener('wheel', e => {
+  if (!document.getElementById('albumView').classList.contains('on')) return;
+  bmPos += e.deltaY * 0.0022;
+}, { passive: true });
+let bmDrag = null;
+addEventListener('pointerdown', e => {
+  if (document.getElementById('albumView').classList.contains('on')) bmDrag = e.clientY;
+});
+addEventListener('pointermove', e => {
+  if (bmDrag !== null) { bmPos -= (e.clientY - bmDrag) * 0.008; bmDrag = e.clientY; }
+});
+addEventListener('pointerup', () => bmDrag = null);
+function slotAt(px, py) {
+  const m = 4; // dar tolerans: kart yuvanın gerçekten İÇİNE girmeli
+  return SLOTS.find(s => px > s.x - m && px < s.x + slotW + m && py > s.y - m && py < s.y + slotH + m);
+}
+function absorb(card, slot) { // fotoğraf küçülerek yuvaya emilir
+  const idx = cards.indexOf(card);
+  if (idx >= 0) cards.splice(idx, 1);
+  if (held === card) { held = null; holdHand = -1; scaleBase = null; grabHandSize = null; }
+  card.el.classList.remove('held');
+  const cx = slot.x + slotW / 2 - card.w / 2, cy = slot.y + slotH / 2 - card.h / 2;
+  card.el.style.transition = 'transform .5s cubic-bezier(.45,-.15,.25,1), opacity .48s ease';
+  card.el.style.transform = `translate(${cx}px,${cy}px) rotate(${(Math.random()-.5)*40}deg) scale(0.04)`;
+  card.el.style.opacity = 0;
+  setTimeout(() => card.el.remove(), 560);
+  slot.count++;
+  slotUI(slot);
+  if (card.rec) { card.rec.album = slot.id; DB.put('photos', card.rec); } // kalıcı: yenile-aç, albümde durur
+  slot.el.classList.remove('gulp'); void slot.el.offsetWidth; slot.el.classList.add('gulp');
+  spark(slot.x + slotW / 2, slot.y + slotH / 2, 22, 6);
+  sndAbsorb();
+  document.getElementById('chipCount').textContent = `Anılar · ${cards.length} Kare`;
+}
+
+// ================= KARTLAR =================
+function makeCard(ph, i) { // ph: {src, name, rec?} — rec = DB kaydı (kullanıcı fotoğrafı)
+  const w = (88 + Math.random() * 58) * S;
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `<img src="${ph.src}" draggable="false"><div class="lbl">${ph.name}</div>`;
+  // boyutlar BİR KEZ ayarlanır; animasyon transform:scale ile (layout thrash yok)
+  el.style.width = w + 'px';
+  el.style.padding = `${w * 0.05}px ${w * 0.05}px 0px`;
+  const nm = (ph.name || ' ');
+  el.querySelector('.lbl').style.fontSize =
+    Math.max(9, Math.min(w * 0.16, (w * 2.0) / nm.length)) + 'px';
+  document.body.appendChild(el);
+  const c = {
+    el, w, h: w * 1.06, tw: w, th: w * 1.06, baseW: w, baseH: w * 1.06,
+    name: ph.name || ' ', rec: ph.rec || null,
+    x: innerWidth / 2 - w / 2, y: innerHeight / 2 - w * 0.53,
+    tx: 0, ty: 0, vx: 0, vy: 0, pull: 0.02,
+    depth: (w / S - 88) / 58,
+    rot: (Math.random() - .5) * 8, trot: (Math.random() - .5) * 8,   // hafif eğim (dağınık moodboard değil, araç)
+    bobA: Math.random() * Math.PI * 2, bobS: 0.25 + Math.random() * 0.5
+  };
+  cards.push(c);
+  setTimeout(() => el.classList.add('in'), 55 * i + 80);
+  return c;
+}
+const LEFT_PAD = 16 + slotW + 26; // yuvaların sağından başla
+function scatterTargets() {
+  for (const c of cards) {
+    c.tx = LEFT_PAD + Math.random() * (innerWidth - c.baseW - LEFT_PAD - 30);
+    c.ty = 84 + Math.random() * (innerHeight - c.baseH - 170);
+    c.trot = (Math.random() - .5) * 26;
+  }
+}
+function gridTargets() {
+  const n = cards.length, availW = innerWidth - LEFT_PAD - 40;
+  const cols = Math.max(3, Math.ceil(Math.sqrt(n * availW / innerHeight / 0.9)));
+  const rows = Math.ceil(n / cols);
+  const cw = availW / cols, ch = (innerHeight - 190) / rows;
+  const order = [...cards].sort(() => Math.random() - .5);
+  order.forEach((c, i) => {
+    c.tx = LEFT_PAD + (i % cols) * cw + (cw - c.baseW) / 2;
+    c.ty = 95 + Math.floor(i / cols) * ch + (ch - c.baseH) / 2;
+    c.trot = (Math.random() - .5) * 4;
+  });
+}
+function reshuffle() {
+  layoutMode = (layoutMode + 1) % 2;
+  (layoutMode ? gridTargets : scatterTargets)();
+  cards.forEach((c, i) => {
+    setTimeout(() => { c.pull = 0.16; }, i * 22);
+    c.tw = c.baseW; c.th = c.baseH;
+  });
+  spark(innerWidth / 2, innerHeight / 2, 40, 9);
+  sndShuffle();
+}
+const MAX_WALL = 36; // duvarda aynı anda en fazla bu kadar kart uçar
+async function spawnCards() {
+  document.querySelectorAll('.card').forEach(e => e.remove());
+  cards.length = 0;
+  // duvar = henüz albüme KONMAMIŞ kullanıcı fotoğrafları; hiç yoksa demo seti
+  const userPh = (await DB.all('photos'));
+  const unfiled = userPh.filter(p => !p.album);
+  let list = unfiled.length
+    ? unfiled.map(p => ({ src: p.data, name: p.name, rec: p }))
+    : [...PHOTOS].map(p => ({ src: p.file, name: p.name }));
+  list = list.sort(() => Math.random() - .5).slice(0, MAX_WALL);
+  list.forEach(makeCard);
+  layoutMode = 1; gridTargets();   // varsayılan: düzenli ızgara (araç hissi); 🖐️⬆ ile dağınığa geçilir
+  cards.forEach(c => { c.pull = 0.06; });
+  // albüm sayaçlarını DB'den doldur
+  SLOTS.forEach(s => { s.count = userPh.filter(p => p.album === s.id).length; slotUI(s); });
+  document.getElementById('chipCount').textContent = `Anılar · ${cards.length} Kare`;
+}
+function cardAt(px, py) {
+  for (let i = cards.length - 1; i >= 0; i--) {
+    const c = cards[i], m = 22;
+    if (px > c.x - m && px < c.x + c.w + m && py > c.y - m && py < c.y + c.h + m) return c;
+  }
+  return null;
+}
+document.getElementById('chipReset').onclick = spawnCards;
+
+// ---- fotoğraf yükleme: galeriden seç -> küçült -> IndexedDB -> duvara katıl ----
+document.getElementById('chipUpload').onclick = () => document.getElementById('fileIn').click();
+document.getElementById('fileIn').addEventListener('change', async e => {
+  for (const f of e.target.files) {
+    const data = await new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 900 / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = img.width * k; cv.height = img.height * k;
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(img.src);
+        res(cv.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = URL.createObjectURL(f);
+    });
+    const rec = { data, name: f.name.replace(/\.[^.]+$/, '').replace(/^[\d_\-\s]+$/, ''), album: null };
+    rec.id = await DB.add('photos', rec);
+    if (cards.length < MAX_WALL) {
+      const c = makeCard({ src: data, name: rec.name, rec }, cards.length);
+      c.tx = LEFT_PAD + Math.random() * (innerWidth - c.baseW - LEFT_PAD - 30);
+      c.ty = 84 + Math.random() * (innerHeight - c.baseH - 170);
+      c.pull = 0.08;
+    }
+  }
+  e.target.value = '';
+  document.getElementById('chipCount').textContent = `Anılar · ${cards.length} Kare`;
+  sndShuffle();
+});
+
+// ---- yeni albüm ----
+document.getElementById('chipAlbum').onclick = async () => {
+  const name = (prompt('Albüm adı:') || '').trim().toUpperCase();
+  if (!name) return;
+  const id = await DB.add('albums', { label: name });
+  createSlot({ id, label: name });
+  sndGrab();
+};
+
+// ================= YILDIZ + METEOR + TOZ =================
+const st = document.getElementById('stars'), sctx = st.getContext('2d');
+let stars = [];
+function initStars() {
+  st.width = innerWidth; st.height = innerHeight;
+  stars = Array.from({ length: 110 }, () => ({
+    x: Math.random() * st.width, y: Math.random() * st.height,
+    r: Math.random() * 1.4 + .3, s: Math.random() * .14 + .03,
+    tw: Math.random() * Math.PI * 2
+  }));
+}
+addEventListener('resize', initStars); initStars();
+let meteors = [];
+function maybeMeteor(dt) {
+  return; // kullanışlılık modu: meteor yok (oyun hissini azalt) — istenirse bu satırı sil
+  if (Math.random() < 0.004 * dt && meteors.length < 2) {
+    const fromLeft = Math.random() < .5;
+    meteors.push({
+      x: fromLeft ? -40 : Math.random() * st.width, y: Math.random() * st.height * .4,
+      vx: (fromLeft ? 1 : -1) * (7 + Math.random() * 6), vy: 3 + Math.random() * 3, life: 1
+    });
+  }
+}
+const fx = document.getElementById('fx'), fctx = fx.getContext('2d');
+let sparks = [];
+function resizeFx(){ fx.width = innerWidth; fx.height = innerHeight; }
+addEventListener('resize', resizeFx); resizeFx();
+function spark(x, y, n, spread) {
+  for (let i = 0; i < n; i++) sparks.push({
+    x, y, vx: (Math.random()-.5) * spread, vy: (Math.random()-.5) * spread - .3,
+    life: 1, big: Math.random() < .25
+  });
+}
+function ambientDust(dt) {
+  if (Math.random() < .12 * dt) sparks.push({   // kullanışlılık modu: toz azaltıldı
+    x: Math.random() * innerWidth, y: innerHeight * (0.25 + Math.random() * .8),
+    vx: (Math.random() - .5) * .5, vy: -(.25 + Math.random() * .55),
+    life: 1, big: Math.random() < .3, slow: true
+  });
+}
+
+// ================= ANA DÖNGÜ =================
+let tPrev = performance.now();
+function loop(tNow) {
+  const dt = Math.min(32, tNow - tPrev) / 16.67; tPrev = tNow;
+  const t = tNow / 1000;
+
+  sctx.clearRect(0, 0, st.width, st.height);
+  for (const s of stars) {
+    s.x -= s.s * dt; if (s.x < 0) s.x = st.width;
+    s.tw += 0.03 * dt;
+    sctx.globalAlpha = 0.07 + 0.09 * Math.abs(Math.sin(s.tw));  // aydınlık modda yıldızlar silik
+    sctx.fillStyle = '#cfe9ff';
+    sctx.beginPath(); sctx.arc(s.x, s.y, s.r, 0, 7); sctx.fill();
+  }
+  sctx.globalAlpha = 1;
+  maybeMeteor(dt);
+  meteors = meteors.filter(m => m.life > 0);
+  for (const m of meteors) {
+    m.x += m.vx * dt; m.y += m.vy * dt; m.life -= .012 * dt;
+    const g = sctx.createLinearGradient(m.x, m.y, m.x - m.vx * 9, m.y - m.vy * 9);
+    g.addColorStop(0, `rgba(200,235,255,${.85 * m.life})`);
+    g.addColorStop(1, 'rgba(200,235,255,0)');
+    sctx.strokeStyle = g; sctx.lineWidth = 2;
+    sctx.beginPath(); sctx.moveTo(m.x, m.y); sctx.lineTo(m.x - m.vx * 9, m.y - m.vy * 9); sctx.stroke();
+  }
+
+  // ✋ 2B akış — momentum kalıcı, yakalayana kadar
+  const flowMag = Math.hypot(flowX, flowY);
+  if (flowMag > 0.04) {
+    for (const c of cards) {
+      if (c === held) continue;
+      const k = (0.55 + c.depth * 0.75) * dt;
+      c.x += flowX * k; c.y += flowY * k;
+      c.tx = c.x; c.ty = c.y;
+      const spanY = innerHeight + c.h + 180, spanX = innerWidth + c.w + 180;
+      if (c.y > innerHeight + 90) { c.y -= spanY; c.ty = c.y; }
+      if (c.y < -c.h - 90)        { c.y += spanY; c.ty = c.y; }
+      if (c.x > innerWidth + 90)  { c.x -= spanX; c.tx = c.x; }
+      if (c.x < -c.w - 90)        { c.x += spanX; c.tx = c.x; }
+    }
+    if (held)           { flowX *= Math.pow(0.78, dt);   flowY *= Math.pow(0.78, dt); }
+    else if (!palmSeen) { flowX *= Math.pow(0.9985, dt); flowY *= Math.pow(0.9985, dt); }
+  } else { flowX = 0; flowY = 0; }
+
+  // yuva vurgusu: tutulan kart yuvada KISA SÜRE beklerse emilir (üzerinden geçerken yutmaz)
+  let hotSlot = null;
+  if (held) {
+    hotSlot = slotAt(held.x + held.w / 2, held.y + held.h / 2);
+    if (hotSlot) {
+      if (hotSlotCur === hotSlot) {
+        if (tNow - hotSince > 200) absorb(held, hotSlot);   // ~0.2sn niyet onayı
+      } else { hotSlotCur = hotSlot; hotSince = tNow; }
+    } else hotSlotCur = null;
+  } else hotSlotCur = null;
+  SLOTS.forEach(s => s.el.classList.toggle('hot', s === hotSlot));
+
+  for (const c of cards) {
+    if (c === held) {
+      const nx = c.x + (c.tx - c.x) * LERP * dt;
+      const ny = c.y + (c.ty - c.y) * LERP * dt;
+      c.vx = nx - c.x; c.vy = ny - c.y;
+      c.x = nx; c.y = ny;
+    } else {
+      c.x += c.vx * dt; c.y += c.vy * dt;
+      c.vx *= Math.pow(DAMP, dt); c.vy *= Math.pow(DAMP, dt);
+      c.pull += (0.02 - c.pull) * 0.012 * dt;
+      c.x += (c.tx - c.x) * c.pull * dt;
+      c.y += (c.ty - c.y) * c.pull * dt;
+      if (flowMag <= 0.04) {
+        if (c.x < 4) { c.x = 4; c.vx = Math.abs(c.vx) * .55; }
+        if (c.y < 72) { c.y = 72; c.vy = Math.abs(c.vy) * .55; }
+        if (c.x + c.w > innerWidth - 4)  { c.x = innerWidth - 4 - c.w;  c.vx = -Math.abs(c.vx) * .55; }
+        if (c.y + c.h > innerHeight - 72){ c.y = innerHeight - 72 - c.h; c.vy = -Math.abs(c.vy) * .55; }
+      }
+      if (Math.abs(c.tx - c.x) < 2 && Math.abs(c.ty - c.y) < 2) { c.tx = c.x; c.ty = c.y; }
+    }
+    c.w += (c.tw - c.w) * 0.14 * dt;
+    c.h += (c.th - c.h) * 0.14 * dt;
+    c.rot += (c.trot - c.rot) * 0.12 * dt;
+    const bob = c === held ? 0 : Math.sin(t * c.bobS + c.bobA) * 1.1;   // sakin süzülme
+    const rot = c.rot + (c === held ? 0 : Math.sin(t * c.bobS * .8 + c.bobA) * 0.4);
+    // PERFORMANS: boyut değişimi layout tetikleyen width/padding yerine GPU'daki scale ile
+    const sc = c.w / c.baseW;
+    c.el.style.transform =
+      `translate(${c.x + (c.w - c.baseW) / 2}px,${c.y + bob + (c.h - c.baseH) / 2}px) rotate(${rot}deg) scale(${sc})`;
+  }
+
+  ambientDust(dt);
+  fctx.clearRect(0, 0, fx.width, fx.height);
+  sparks = sparks.filter(s => s.life > 0);
+  if (sparks.length > 160) sparks.splice(0, sparks.length - 160);  // parçacık tavanı
+  // PERFORMANS: iki geçiş — küçükler glow'suz, glow sadece büyüklerde (shadowBlur pahalı)
+  fctx.shadowBlur = 0; fctx.fillStyle = '#ffffff';
+  for (const s of sparks) {
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= (s.slow ? .006 : .02) * dt;
+    if (s.big) continue;
+    fctx.globalAlpha = s.life * .8;
+    fctx.beginPath(); fctx.arc(s.x, s.y, 1.5 + 1.6 * s.life, 0, 7); fctx.fill();
+  }
+  fctx.fillStyle = '#ffd6f0'; fctx.shadowColor = '#ffc9ec'; fctx.shadowBlur = 9;
+  for (const s of sparks) {
+    if (!s.big) continue;
+    fctx.globalAlpha = s.life * .85;
+    fctx.beginPath(); fctx.arc(s.x, s.y, 2.6 + 1.8 * s.life, 0, 7); fctx.fill();
+  }
+  fctx.globalAlpha = 1; fctx.shadowBlur = 0;
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ================= EL İSKELETİ ÇİZİMİ (eklem renkleri: uç/IP=pembe, boğum=sarı, bilek=kırmızı) =================
+const hc = document.getElementById('hand'), hctx = hc.getContext('2d');
+function resizeHand(){ hc.width = innerWidth; hc.height = innerHeight; }
+addEventListener('resize', resizeHand); resizeHand();
+const HAND_CONN = [ // MediaPipe kemik bağlantıları
+  [0,1],[1,2],[2,3],[3,4],        // baş parmak
+  [0,5],[5,6],[6,7],[7,8],        // işaret
+  [5,9],[9,10],[10,11],[11,12],   // orta
+  [9,13],[13,14],[14,15],[15,16], // yüzük
+  [13,17],[17,18],[18,19],[19,20],// serçe
+  [0,17]                          // avuç kenarı
+];
+const JOINT_COLOR = i =>
+  i === 0                       ? '#e11d2e' :  // bilek (CMC) kırmızı
+  [1,5,9,13,17].includes(i)     ? '#ffd23e' :  // boğumlar (MCP) sarı
+                                  '#ff8fa8';   // orta eklem + uçlar (IP) pembe
+function drawHands(hands) {
+  hctx.clearRect(0, 0, hc.width, hc.height);
+  for (const lm of hands) {
+    const px = i => (1 - lm[i].x) * innerWidth;   // aynalı
+    const py = i => lm[i].y * innerHeight;
+    // kemikler
+    hctx.strokeStyle = 'rgba(240,248,255,.45)';
+    hctx.lineWidth = 2;
+    hctx.beginPath();
+    for (const [a, b] of HAND_CONN) { hctx.moveTo(px(a), py(a)); hctx.lineTo(px(b), py(b)); }
+    hctx.stroke();
+    // eklem noktaları (glow sadece uçlarda — performans)
+    hctx.shadowBlur = 0;
+    for (let i = 0; i < 21; i++) {
+      const tip = [4,8,12,16,20].includes(i);
+      hctx.fillStyle = JOINT_COLOR(i);
+      if (tip) { hctx.shadowColor = JOINT_COLOR(i); hctx.shadowBlur = 10; }
+      hctx.beginPath();
+      hctx.arc(px(i), py(i), (i === 0 ? 6 : tip ? 5 : 3.6), 0, 7);
+      hctx.fill();
+      if (tip) hctx.shadowBlur = 0;
+    }
+  }
+}
+
+// ================= EL TAKİBİ =================
+const video = document.getElementById('cam');
+const dots = [document.getElementById('dot0'), document.getElementById('dot1')];
+const PINCH_ON = 0.055, PINCH_OFF = 0.085;
+const pinchState = [false, false];
+let prevPalm = null;
+let releaseAt = 0;     // son bırakma anı (avuç jestleriyle çakışmayı önler)
+
+function airPress(el) { // havadan buton basma: görsel bastırma + klik
+  el.classList.remove('press'); void el.offsetWidth; el.classList.add('press');
+  sndGrab();
+  el.click();
+}
+function fingerExtended(lm, tip, pip) {
+  const w = lm[0];
+  return Math.hypot(lm[tip].x - w.x, lm[tip].y - w.y) >
+         Math.hypot(lm[pip].x - w.x, lm[pip].y - w.y) * 1.12;
+}
+
+function onResults(res) {
+  const hs = res.multiHandLandmarks || [];
+  drawHands(hs.slice(0, 2));   // eklem renkli iskelet — kullanıcı elinin görüldüğünü bilir
+  dots.forEach(d => d.style.display = 'none');
+  const pts = [];
+
+  hs.slice(0, 2).forEach((lm, hi) => {
+    const th = lm[4], ix = lm[8];
+    const d = Math.hypot(th.x - ix.x, th.y - ix.y);
+    const wasPinch = pinchState[hi];
+    if (!pinchState[hi] && d < PINCH_ON)  pinchState[hi] = true;
+    if ( pinchState[hi] && d > PINCH_OFF) pinchState[hi] = false;
+    const open = !pinchState[hi] &&
+      fingerExtended(lm, 8, 6) && fingerExtended(lm, 12, 10) &&
+      fingerExtended(lm, 16, 14) && fingerExtended(lm, 20, 18);
+    const x = (1 - (th.x + ix.x) / 2) * innerWidth;
+    const y = ((th.y + ix.y) / 2) * innerHeight;
+    const palmX = (1 - lm[9].x) * innerWidth;
+    const palmY = lm[9].y * innerHeight;
+    pts.push({ x, y, pinch: pinchState[hi], pinchNew: pinchState[hi] && !wasPinch, open, palmX, palmY, d });
+    const dot = dots[hi];
+    dot.style.display = 'block';
+    dot.style.left = x + 'px'; dot.style.top = y + 'px';
+    dot.classList.toggle('pinch', pinchState[hi]);
+    dot.classList.toggle('palm', open);
+  });
+
+  // --- HAVADAN BASMA: imleç buton/yuva üstündeyse vurgulanır, kıstırınca basılır ---
+  let uiHit = null;
+  if (!held) {
+    for (const p of pts) {
+      const el = document.elementFromPoint(p.x, p.y);
+      const ui = el && el.closest ? el.closest('.chip, .slot') : null;
+      if (ui && ui.id !== 'chipCount' && ui.id !== 'chipGest') { uiHit = { ui, p }; break; }
+    }
+  }
+  document.querySelectorAll('.chip.hov, .slot.hov').forEach(e => { if (!uiHit || e !== uiHit.ui) e.classList.remove('hov'); });
+  if (uiHit) uiHit.ui.classList.add('hov');
+  // albüm görünümü açıkken: avuçla şeridi kaydır + havadan Kapat'a bas
+  if (document.getElementById('albumView').classList.contains('on')) {
+    if (uiHit && uiHit.p.pinchNew) airPress(uiHit.ui);
+    const pl = pts.find(q => q.open);
+    if (pl) {
+      if (prevPalm) bmPos += (pl.palmY - prevPalm.y) * 0.006;
+      prevPalm = { x: pl.palmX, y: pl.palmY };
+    } else prevPalm = null;
+    return;
+  }
+  if (uiHit && uiHit.p.pinchNew) { airPress(uiHit.ui); return; }
+
+  // BIRAKMA: el kadrajdan çıktı VEYA avuç tamamen açıldı ("elini aç = bırak")
+  const hp = holdHand >= 0 && holdHand < pts.length ? pts[holdHand] : null;
+  if (held && (!hp || hp.open)) {
+    spark(held.x + held.w / 2, held.y + held.h / 2, 16, 5);
+    held.tw = held.baseW; held.th = held.baseH;
+    held.trot = (Math.random() - .5) * 26;
+    held.vx *= 1.5; held.vy *= 1.5;
+    held.tx = held.x; held.ty = held.y;
+    held.el.classList.remove('held'); held = null; holdHand = -1;
+    releaseAt = performance.now();      // bırakır bırakmaz avuç kaydırmayı tetiklemesin
+  }
+  // TUTMA: parmakları kıstır (pinch) — kart yapışır, parmaklar açılınca DÜŞMEZ
+  if (!held) {
+    for (let hi = 0; hi < pts.length; hi++) {
+      if (pts[hi].pinch) {
+        const c = cardAt(pts[hi].x, pts[hi].y);
+        if (c) {
+          held = c; holdHand = hi; c.el.classList.add('held');
+          spark(pts[hi].x, pts[hi].y, 12, 4);
+          c.trot = 0;
+          cards.splice(cards.indexOf(c), 1); cards.push(c);
+          sndGrab();
+          break;
+        }
+      }
+    }
+  }
+  // SÜRÜKLEME + telefon usulü BÜYÜTME: başparmak-işaret arası açıldıkça kart büyür
+  if (held) {
+    const p = pts[holdHand];
+    held.tx = p.x - held.w / 2; held.ty = p.y - held.h / 2;
+    spark(p.x, p.y, 1, 2.5);
+    const k = Math.min(3.8, Math.max(0.8, 1 + (p.d - 0.055) * 14));
+    const ratio = held.baseH / held.baseW;
+    const gw = Math.min(held.baseW * 1.35 * k, innerWidth * 0.8, (innerHeight * 0.74) / ratio);
+    held.tw = gw; held.th = gw * ratio;
+  } else {
+    const palm = pts.find(q => q.open);
+    palmSeen = !!palm && performance.now() - releaseAt > 600;   // bırakma sonrası kısa dokunulmazlık
+    if (palm && performance.now() - releaseAt > 600) {
+      if (prevPalm) {
+        const dx = palm.palmX - prevPalm.x;
+        const dy = palm.palmY - prevPalm.y;
+        const sp = Math.hypot(dx, dy);
+        if (sp > 1.6) {
+          flowX = flowX * 0.45 + dx * 0.55;
+          flowY = flowY * 0.45 + dy * 0.55;
+          // ses kaldırıldı: hareket sessiz (Enes isteği)
+        } else {
+          flowX *= 0.72; flowY *= 0.72;
+        }
+      }
+      prevPalm = { x: palm.palmX, y: palm.palmY };
+      if (palm.palmY < innerHeight * 0.17 && performance.now() - lastShuffle > 2200) {
+        lastShuffle = performance.now();
+        flowX = flowY = 0;
+        reshuffle();
+      }
+    } else prevPalm = null;
+  }
+}
+
+// ================= AIRCHIP INTRO (Black Mirror ruhu, kod ile) =================
+function sndHum() { // açılış: derin uğultu + hafif dijital doku
+  if (!AC) return;
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(52, t);
+  o.frequency.linearRampToValueAtTime(66, t + 3.6);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.11, t + 1.2);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 4.4);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + 4.5);
+}
+function sndCrack() { // cam kırığı: kısa keskin noise çıtırtısı
+  if (!AC) return;
+  const t = AC.currentTime;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf;
+  const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2600;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.28, t + .015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + .22);
+  src.connect(hp).connect(g).connect(AC.destination); src.start(t); src.stop(t + .25);
+}
+function playIntro() {
+  const seq = document.getElementById('introSeq');
+  seq.style.display = 'flex';
+  sndHum();
+  const timers = [];
+  timers.push(setTimeout(() => document.getElementById('introRing').classList.add('on'), 250));
+  timers.push(setTimeout(() => { document.getElementById('introTitle').classList.add('on'); sndGrab(); }, 1500));
+  timers.push(setTimeout(() => { document.getElementById('introCrack').classList.add('flash'); sndCrack(); }, 3100));
+  timers.push(setTimeout(done, 4300));
+  function done() {
+    timers.forEach(clearTimeout);
+    sndWhoosh(1);
+    seq.classList.add('out');            // halka büyüyerek galeriye açılır
+    setTimeout(() => seq.remove(), 1350);
+  }
+  seq.addEventListener('click', done, { once: true }); // dokun = geç
+}
+
+// ================= BAŞLATMA (ses + mobil kamera için dokunuş şart) =================
+async function startApp(skipIntro) {
+  document.getElementById('startOverlay').remove();
+  audioInit();
+  if (AC && AC.state === 'suspended') AC.resume();
+  if (!skipIntro) playIntro();           // galeri intro arkasında hazırlanır, geçiş kaygan olur
+  await DB.open();
+  let albums = await DB.all('albums');
+  // varsayılan albümler eksikse tamamla (eski kurulumlar dahil)
+  for (const label of ['AİLE', 'GEZİLECEK YERLER', 'ÇOCUKLUK']) {
+    if (!albums.some(a => a.label === label)) await DB.add('albums', { label });
+  }
+  albums = await DB.all('albums');
+  SLOTS = [];
+  albums.forEach(createSlot);
+  const mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  mpHands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 0,                   // hafif model: jestler için yeterli, 2-3x hızlı
+    minDetectionConfidence: 0.6, minTrackingConfidence: 0.6
+  });
+  mpHands.onResults(onResults);
+  new Camera(video, {
+    onFrame: async () => await mpHands.send({ image: video }),
+    width: IS_MOBILE ? 640 : 960, height: IS_MOBILE ? 360 : 540,
+    facingMode: 'user'
+  }).start();
+  spawnCards();
+}
+document.getElementById('startBtn').addEventListener('click', () => startApp(false));
+const QP = new URLSearchParams(location.search);
+if (QP.has('autostart')) startApp(!QP.has('intro')); // headless test (introsuz; &intro ile introlu)
+</script>
+</body>
+</html>
