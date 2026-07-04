@@ -1,42 +1,47 @@
-# MEMORY CHIP 🖐️
+# AIRCHIP 🖐️
 
-**Fotoğraflarını bir bilim kurgu filmindeymiş gibi, ellerinle havada yönet.**
+**English** | [Türkçe](README.tr.md)
 
-Kamera elinin 21 eklem noktasını gerçek zamanlı takip eder. Fotoğrafları parmaklarınla tutar,
-büyütür, havada savurur ve albümlere ayırırsın — mouse yok, dokunmatik yok.
+**Browse your photos like you're inside a sci-fi movie — with nothing but your hands.**
 
-> Bu uygulamanın tek satırını elle yazmadım — tamamını [Claude Code](https://claude.com/claude-code)'a tarif ederek yaptırdım.
+Your camera tracks 21 joints of your hand in real time. Grab photos with a pinch,
+zoom them like you would on a phone screen, sweep the whole gallery through the air,
+and file memories into albums — no mouse, no touchscreen.
 
-## 🚀 Çalıştırma
+> I didn't write a single line of this by hand — I described it to [Claude Code](https://claude.com/claude-code) and it built the whole thing.
 
-**En kolay:** `index.html` dosyasını indir, Chrome'da aç, kamera iznini ver. Hepsi bu — sunucu yok, kurulum yok.
+🌐 **Live demo:** https://eneslexi.github.io/memory-chip/
 
-- Tüm işlem **kendi cihazında** çalışır: fotoğrafların hiçbir sunucuya gitmez.
-- Telefonda kamera için HTTPS gerekir (canlı linkten aç ya da kendi hostinginde yayınla).
+## 🚀 Run it
 
-## ✋ Jestler
+**Easiest:** download `index.html`, open it in Chrome, allow camera access. That's it — no server, no install.
 
-| Hareket | Ne yapar |
+- Everything runs **on your device**: your photos never leave it, nothing is uploaded anywhere.
+- On phones the camera requires HTTPS — use the live demo link or host it yourself.
+
+## ✋ Gestures
+
+| Gesture | What it does |
 |---|---|
-| 👌 Baş parmak + işaret parmağını kıstır | Fotoğrafı tut |
-| 🤏↔️ Tutarken parmak arasını aç/kapat | Büyüt / küçült (telefondaki gibi) |
-| 🖐️ Avucunu tamamen aç | Bırak |
-| ✋ Açık avuçla süpür | Tüm galeri akar (momentum korunur, yakalayana kadar) |
-| 🖐️⬆ Avucu yukarı kaldır | Diziliş değişir (ızgara ↔ serbest) |
-| 📁 Fotoğrafı sol yuvaya götürüp beklet | Albüme kaydolur |
-| 👆 Parmağı butona getir + kıstır | Havadan buton basma |
+| 👌 Pinch thumb + index finger | Grab a photo |
+| 🤏↔️ Spread / close fingers while holding | Zoom in / out (just like on a phone) |
+| 🖐️ Open your hand fully | Release |
+| ✋ Move your hand around | The whole gallery flows with you, with depth parallax |
+| 🖐️⬆ Raise an open palm to the top | Toggle layout (grid ↔ scattered) |
+| 📁 Hold a photo over a slot | It gets absorbed into that album |
+| 👆 Point at a button + pinch | Press buttons in mid-air |
 
-## 🔧 Nasıl çalışıyor?
+## 🔧 How it works
 
-- **El takibi:** MediaPipe Hands — tarayıcı içinde, cihaz üstünde
-- **Sesler:** Dosya yok; tüm sesler WebAudio ile anlık sentezlenir
-- **Depolama:** IndexedDB — fotoğraflar ve albümler cihazında kalıcı
-- **Tek dosya:** Uygulamanın tamamı `index.html`
+- **Hand tracking:** MediaPipe Hands — in-browser, on-device
+- **Sound:** zero audio files; every sound is synthesized live with WebAudio
+- **Storage:** IndexedDB — photos and albums persist on your device
+- **Single file:** the entire app is one `index.html`
 
-## 🧑‍🚀 Yapan
+## 🧑‍🚀 Author
 
-**Enes** — ürünlerimi yapay zekâyla inşa ediyorum ve süreci paylaşıyorum:
+**Enes** — I build products with AI and share the whole journey:
 
-- Instagram: [@enesa.co](https://instagram.com/enesa.co) · TikTok: [@eneslexi](https://tiktok.com/@eneslexi) · X: [@Eneslexi](https://x.com/Eneslexi)
+- X: [@Eneslexi](https://x.com/Eneslexi) · Instagram: [@enesa.co](https://instagram.com/enesa.co) · TikTok: [@eneslexi](https://tiktok.com/@eneslexi)
 
-Fotoğraflar: Wikimedia Commons (CC). Lisans: MIT — istediğin gibi kullan, öğren, değiştir.
+Demo photos: Wikimedia Commons (CC). License: MIT — use it, learn from it, remix it.
