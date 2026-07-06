@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>AirChip — Anılarını Elinle Yönet</title>
+<title>AirChip — Manage Your Memories With Your Hands</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #01020a;
@@ -47,9 +47,21 @@
     text-align: center; line-height: 1;
     padding: 4% 2% 5% 2%; white-space: nowrap; overflow: hidden;
   }
-  .card.held {
-    box-shadow: 0 0 26px rgba(163,216,255,.5), 0 0 90px rgba(163,216,249,.22), 0 30px 90px rgba(0,0,0,.75);
+  .card.held { /* hologram tutuş: neon cyan çerçeve + nabız */
+    box-shadow: 0 0 0 2px rgba(103,232,249,.85), 0 0 34px rgba(103,232,249,.55),
+                0 0 120px rgba(103,232,249,.25), 0 30px 90px rgba(0,0,0,.75);
+    animation: holdpulse 1.6s ease-in-out infinite;
     z-index: 20;
+  }
+  @keyframes holdpulse {
+    50% { box-shadow: 0 0 0 2.5px rgba(165,243,252,1), 0 0 52px rgba(103,232,249,.85),
+                      0 0 150px rgba(103,232,249,.4), 0 30px 90px rgba(0,0,0,.75); }
+  }
+  .card.warp img { animation: warpin .55s steps(4) both; } /* kolaja dönüşte dijital parıltı */
+  @keyframes warpin {
+    0%   { filter: hue-rotate(50deg) brightness(2) saturate(2.4) contrast(1.3); }
+    55%  { filter: hue-rotate(-30deg) brightness(1.25) saturate(1.4); }
+    100% { filter: none; }
   }
 
   /* ---- sol arşiv yuvaları: elektronik sci-fi çerçeveler ---- */
@@ -261,23 +273,23 @@
 <canvas id="hand"></canvas>
 <div class="hud" id="h2"></div>
 <div class="hud" id="h4"></div>
-<div class="chip" id="chipReset">Sıfırla</div>
-<div class="chip" id="chipCount">Anılar</div>
-<div class="chip" id="chipUpload">+ Fotoğraf Yükle</div>
-<div class="chip" id="chipAlbum">+ Albüm</div>
+<div class="chip" id="chipReset">Reset</div>
+<div class="chip" id="chipCount">Memories</div>
+<div class="chip" id="chipUpload">+ Upload Photos</div>
+<div class="chip" id="chipAlbum">+ New Album</div>
 <input type="file" id="fileIn" accept="image/*" multiple hidden>
 <div id="albumModal">
   <div id="amBox">
-    <h3>Yeni Albüm</h3>
-    <input id="amInput" type="text" maxlength="18" placeholder="ALBÜM ADI">
+    <h3>New Album</h3>
+    <input id="amInput" type="text" maxlength="18" placeholder="ALBUM NAME">
     <div id="amRow">
-      <div class="chip" id="amCancel">Vazgeç</div>
-      <div class="chip" id="amOk" style="color:#01020a;background:#67e8f9">Oluştur</div>
+      <div class="chip" id="amCancel">Cancel</div>
+      <div class="chip" id="amOk" style="color:#01020a;background:#67e8f9">Create</div>
     </div>
   </div>
 </div>
 <div id="albumView">
-  <div class="chip" id="avClose">Kapat ✕</div>
+  <div class="chip" id="avClose">Close ✕</div>
   <div id="bmDial">
     <svg viewBox="0 0 480 480">
       <circle cx="240" cy="240" r="176" fill="none" stroke="rgba(244,242,240,.5)" stroke-width="1.2"/>
@@ -292,7 +304,7 @@
     <i id="bmRed"></i>
   </div>
   <div id="bmStrip"></div>
-  <div id="bmEmpty" style="display:none">BU ALBÜM BOŞ — FOTOĞRAFI ELİNLE YUVAYA BIRAK</div>
+  <div id="bmEmpty" style="display:none">THIS ALBUM IS EMPTY — DROP A PHOTO IN WITH YOUR HAND</div>
 </div>
 <div id="introSeq" style="display:none">
   <div id="introRing">
@@ -309,7 +321,7 @@
       <div class="t1 frag fragA" aria-hidden="true">AIRCHIP</div>
       <div class="t1 frag fragB" aria-hidden="true">AIRCHIP</div>
     </div>
-    <div class="t2">ANI ARŞİVİ</div>
+    <div class="t2">MEMORY ARCHIVE</div>
   </div>
   <svg id="introCrack" viewBox="0 0 100 60" preserveAspectRatio="none">
     <g stroke="rgba(255,255,255,.9)" stroke-width=".18" fill="none">
@@ -319,10 +331,10 @@
     </g>
   </svg>
 </div>
-<div class="chip" id="chipGest">👌 Tut · 🤏↔️ Aç = Büyüt · 🖐️ Aç = Bırak · 🖐️➡️ Savur = Dağıt · 🖐️⬆ Düzenle</div>
+<div class="chip" id="chipGest">👌 Pinch = Grab · 🤏↔️ Spread = Zoom · 🖐️ Open = Drop · 🖐️➡️ Swipe = Scatter · 🖐️⬆ Arrange</div>
 <div class="dot" id="dot0"></div>
 <div class="dot" id="dot1"></div>
-<div id="startOverlay"><h1>AIRCHIP</h1><button id="startBtn">BAŞLAT</button></div>
+<div id="startOverlay"><h1>AIRCHIP</h1><button id="startBtn">START</button></div>
 
 <script src="photos.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
@@ -330,7 +342,7 @@
 <script>
 const IS_MOBILE = Math.min(innerWidth, innerHeight) < 640;
 if (IS_MOBILE) addEventListener('DOMContentLoaded', () => {
-  document.getElementById('chipGest').textContent = '👌 Tut · 🤏 Büyüt · 🖐️ Bırak · ✋ Gezdir';
+  document.getElementById('chipGest').textContent = '👌 Grab · 🤏 Zoom · 🖐️ Drop · ✋ Move';
 });
 const REEL = new URLSearchParams(location.search).has('reel'); // çekim modu: UI gizli, sahne temiz
 if (REEL) document.body.classList.add('reel');
@@ -504,14 +516,14 @@ const DB = {
 let SLOTS = [];
 const slotW = Math.round(150 * S), slotH = Math.round(104 * S), slotGap = Math.round(52 * S); // yuvalar ayrık: yanlış albüme atma azalır
 function slotUI(s) {
-  s.el.querySelector('.sl-cnt').textContent = `${s.count} ANI`;
+  s.el.querySelector('.sl-cnt').textContent = `${s.count} PICS`;
   s.el.querySelector('.sl-bar i').style.width = Math.min(100, s.count * 12) + '%';
 }
 function createSlot(rec) {
   const s = { id: rec.id, label: rec.label, count: 0 };
   const el = document.createElement('div');
   el.className = 'slot';
-  el.innerHTML = `<div class="sl-name">${s.label}</div><div class="sl-bar"><i></i></div><div class="sl-cnt">0 ANI</div>`;
+  el.innerHTML = `<div class="sl-name">${s.label}</div><div class="sl-bar"><i></i></div><div class="sl-cnt">0 PICS</div>`;
   el.style.width = slotW + 'px'; el.style.height = slotH + 'px';
   el.addEventListener('click', () => openAlbum(s));
   document.body.appendChild(el);
@@ -567,7 +579,7 @@ async function openAlbum(slot) {
   strip.innerHTML = ''; bmItems = []; bmPos = 0; bmPosS = 0; bmLastIdx = -1;
   const mine = (await DB.all('photos')).filter(p => p.album === slot.id);
   document.getElementById('bmEmpty').style.display = mine.length ? 'none' : 'block';
-  document.getElementById('bmIdx').textContent = mine.length ? `1 / ${mine.length}` : 'BOŞ';
+  document.getElementById('bmIdx').textContent = mine.length ? `1 / ${mine.length}` : 'EMPTY';
   mine.forEach(p => {
     const d = document.createElement('div'); d.className = 'bmItem';
     d.innerHTML = `<img src="${p.data}">`;
@@ -616,7 +628,7 @@ function absorb(card, slot) { // fotoğraf küçülerek yuvaya emilir
   slot.el.classList.remove('gulp'); void slot.el.offsetWidth; slot.el.classList.add('gulp');
   spark(slot.x + slotW / 2, slot.y + slotH / 2, 22, 6);
   sndAbsorb();
-  document.getElementById('chipCount').textContent = `Anılar · ${cards.length} Kare`;
+  document.getElementById('chipCount').textContent = `Memories · ${cards.length} shots`;
 }
 
 // ================= KARTLAR =================
@@ -685,8 +697,9 @@ function gridTargets() {
     c.trot = (Math.random() - .5) * 4;
   });
 }
-let regatherT = null;
-function swipeScatter(dir) { // 🖐️➡️ SAVURMA (referans reel): kartlar savurma yönünde küçülüp uçuşur, sonra kolaja döner
+let regatherT = null, waves = [];
+function swipeScatter(dir, wx, wy) { // 🖐️➡️ SAVURMA: kartlar savurma yönünde küçülüp uçuşur, sonra kolaja döner
+  wx = wx ?? innerWidth / 2; wy = wy ?? innerHeight / 2;
   layoutMode = 1;
   scatterTargets();
   cards.forEach((c, i) => {
@@ -695,14 +708,22 @@ function swipeScatter(dir) { // 🖐️➡️ SAVURMA (referans reel): kartlar s
     c.tw = c.baseW * 0.5; c.th = c.baseH * 0.5;
     setTimeout(() => { c.pull = 0.13; }, i * 14);
   });
-  spark(innerWidth / 2, innerHeight / 2, 40, 9);
+  // SCI-FI ŞOK DALGASI: avuçtan yayılan 3 neon halka + yöne fışkıran kıvılcım
+  for (let k = 0; k < 3; k++) waves.push({ x: wx, y: wy, r: 14 + k * 26, s: 15 + k * 4, life: 1 });
+  for (let i = 0; i < 34; i++) sparks.push({
+    x: wx, y: wy, vx: dir * (2.5 + Math.random() * 10), vy: (Math.random() - .5) * 5.5,
+    life: 1, big: Math.random() < .4
+  });
   sndShuffle();
   clearTimeout(regatherT);
   regatherT = setTimeout(() => {                   // ~2.8sn sonra kendiliğinden kolaja toplanır
     layoutMode = 0; collageTargets();
     cards.forEach((c, i) => {
       c.tw = c.baseW; c.th = c.baseH;
-      setTimeout(() => { c.pull = 0.14; }, i * 18);
+      setTimeout(() => {
+        c.pull = 0.14;
+        c.el.classList.remove('warp'); void c.el.offsetWidth; c.el.classList.add('warp'); // dijital parıltı
+      }, i * 18);
     });
     sndShuffle();
   }, 2800);
@@ -734,7 +755,7 @@ async function spawnCards() {
   cards.forEach(c => { c.pull = 0.06; });
   // albüm sayaçlarını DB'den doldur
   SLOTS.forEach(s => { s.count = userPh.filter(p => p.album === s.id).length; slotUI(s); });
-  document.getElementById('chipCount').textContent = `Anılar · ${cards.length} Kare`;
+  document.getElementById('chipCount').textContent = `Memories · ${cards.length} shots`;
 }
 function cardAt(px, py) {
   for (let i = cards.length - 1; i >= 0; i--) {
@@ -771,7 +792,7 @@ document.getElementById('fileIn').addEventListener('change', async e => {
     }
   }
   e.target.value = '';
-  document.getElementById('chipCount').textContent = `Anılar · ${cards.length} Kare`;
+  document.getElementById('chipCount').textContent = `Memories · ${cards.length} shots`;
   sndShuffle();
 });
 
@@ -932,6 +953,18 @@ function loop(tNow) {
     if (!s.big) continue;
     fctx.globalAlpha = s.life * .85;
     fctx.beginPath(); fctx.arc(s.x, s.y, 2.6 + 1.8 * s.life, 0, 7); fctx.fill();
+  }
+  fctx.globalAlpha = 1; fctx.shadowBlur = 0;
+
+  // sci-fi şok dalgaları (savurma anı): genişleyen neon halkalar
+  waves = waves.filter(w => w.life > 0);
+  for (const w of waves) {
+    w.r += w.s * dt; w.life -= 0.024 * dt;
+    fctx.globalAlpha = w.life * .85;
+    fctx.strokeStyle = '#67e8f9';
+    fctx.lineWidth = .6 + 2.6 * w.life;
+    fctx.shadowColor = '#67e8f9'; fctx.shadowBlur = 16 * w.life;
+    fctx.beginPath(); fctx.arc(w.x, w.y, w.r, 0, 7); fctx.stroke();
   }
   fctx.globalAlpha = 1; fctx.shadowBlur = 0;
 
@@ -1101,7 +1134,7 @@ function onResults(res) {
             && performance.now() - releaseAt > 600) {
           lastSwipe = performance.now();
           swipeV = 0;
-          swipeScatter(Math.sign(palm.palmX - swipePrev) || 1);
+          swipeScatter(Math.sign(palm.palmX - swipePrev) || 1, palm.palmX, palm.palmY);
         }
       }
       swipePrev = palm.palmX;
@@ -1230,7 +1263,7 @@ async function startApp(skipIntro) {
   await DB.open();
   let albums = await DB.all('albums');
   // varsayılan albümler eksikse tamamla (eski kurulumlar dahil)
-  for (const label of ['AİLE', 'GEZİLECEK YERLER', 'ÇOCUKLUK']) {
+  for (const label of ['FAMILY', 'TRAVEL', 'CHILDHOOD']) {
     if (!albums.some(a => a.label === label)) await DB.add('albums', { label });
   }
   albums = await DB.all('albums');

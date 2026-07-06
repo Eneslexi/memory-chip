@@ -1,15 +1,15 @@
 const PHOTOS = [
  {
   "file": "photos/00.jpg",
-  "name": "Pamukkale Travertenleri"
+  "name": "Pamukkale Terraces"
  },
  {
   "file": "photos/01.jpg",
-  "name": "Kapadokya"
+  "name": "Cappadocia"
  },
  {
   "file": "photos/02.jpg",
-  "name": "Salda Gölü"
+  "name": "Lake Salda"
  },
  {
   "file": "photos/03.jpg",
@@ -21,55 +21,55 @@ const PHOTOS = [
  },
  {
   "file": "photos/05.jpg",
-  "name": "Kaputaş Plajı"
+  "name": "Kaputaş Beach"
  },
  {
   "file": "photos/06.jpg",
-  "name": "Nemrut Krater Gölü"
+  "name": "Nemrut Crater Lake"
  },
  {
   "file": "photos/07.jpg",
-  "name": "Abant Gölü"
+  "name": "Lake Abant"
  },
  {
   "file": "photos/08.jpg",
-  "name": "Ayder Yaylası"
+  "name": "Ayder Plateau"
  },
  {
   "file": "photos/09.jpg",
-  "name": "Düden Şelalesi"
+  "name": "Düden Waterfall"
  },
  {
   "file": "photos/10.jpg",
-  "name": "Manavgat Şelalesi"
+  "name": "Manavgat Waterfall"
  },
  {
   "file": "photos/11.jpg",
-  "name": "Saklıkent Kanyonu"
+  "name": "Saklıkent Canyon"
  },
  {
   "file": "photos/12.jpg",
-  "name": "Gökgöl Mağarası"
+  "name": "Gökgöl Cave"
  },
  {
   "file": "photos/13.jpg",
-  "name": "Tuz Gölü"
+  "name": "Lake Tuz"
  },
  {
   "file": "photos/14.jpg",
-  "name": "Ihlara Vadisi"
+  "name": "Ihlara Valley"
  },
  {
   "file": "photos/15.jpg",
-  "name": "Kelebekler Vadisi"
+  "name": "Butterfly Valley"
  },
  {
   "file": "photos/16.jpg",
-  "name": "Ağrı Dağı"
+  "name": "Mount Ararat"
  },
  {
   "file": "photos/17.jpg",
-  "name": "Van Gölü"
+  "name": "Lake Van"
  },
  {
   "file": "photos/18.jpg",
@@ -77,15 +77,15 @@ const PHOTOS = [
  },
  {
   "file": "photos/19.jpg",
-  "name": "Meke Gölü"
+  "name": "Lake Meke"
  },
  {
   "file": "photos/20.jpg",
-  "name": "Cennet Obruğu"
+  "name": "Cennet Sinkhole"
  },
  {
   "file": "photos/21.jpg",
-  "name": "Kaçkar Dağları"
+  "name": "Kaçkar Mountains"
  },
  {
   "file": "photos/22.jpg",
@@ -97,42 +97,42 @@ const PHOTOS = [
  },
  {
   "file": "photos_duygu/00.jpg",
-  "name": "Baba & Kız"
+  "name": "Dad & Daughter"
  },
  {
   "file": "photos_duygu/01.jpg",
-  "name": "Sahil Akşamı"
+  "name": "Sunset Walk"
  },
  {
   "file": "photos_duygu/02.jpg",
-  "name": "İlk Adımlar"
+  "name": "First Steps"
  },
  {
   "file": "photos_duygu/03.jpg",
-  "name": "Anne & Bebek"
+  "name": "Mom & Baby"
  },
  {
   "file": "photos_duygu/04.jpg",
-  "name": "Oyun Vakti"
+  "name": "Playtime"
  },
  {
   "file": "photos_duygu/05.jpg",
-  "name": "Dede & Torun"
+  "name": "Grandpa & Me"
  },
  {
   "file": "photos_duygu/06.jpg",
-  "name": "Minik Eller"
+  "name": "Little Hands"
  },
  {
   "file": "photos_duygu/07.jpg",
-  "name": "Uçurtma Günü"
+  "name": "Kite Day"
  },
  {
   "file": "photos_duygu/08.jpg",
-  "name": "Bisiklet Dersi"
+  "name": "First Bike Ride"
  },
  {
   "file": "photos_duygu/09.jpg",
-  "name": "Dönüş Yolu"
+  "name": "The Way Home"
  }
 ];
