@@ -716,23 +716,44 @@ function gridTargets() {
 }
 let regatherT = null, waves = [];
 // ===== 👏 3D YÖRÜNGE MODU: alkışla aç/kapa — kartlar uzay boşluğunda ağır ağır döner =====
-let orbitMode = false, orbitA = 0;
+// Yörüngedeyken 🖐️➡️ savurma = formasyon değiştir: 💍 halka → 🧬 sarmal → ∞ sonsuzluk → 🌌 galaksi
+let orbitMode = false, orbitA = 0, orbitType = 0;
 function toggleOrbit(wx, wy) {
-  orbitMode = !orbitMode;
   clearTimeout(regatherT);                          // bekleyen kolaj toplanması iptal
   for (let k = 0; k < 3; k++) waves.push({ x: wx, y: wy, r: 12 + k * 24, s: 14 + k * 4, life: 1 });
   spark(wx, wy, 26, 7);
   sndShuffle();
-  if (orbitMode) {
+  if (!orbitMode) {
+    orbitMode = true;
     cards.forEach((c, i) => { c.oi = i; c.tw = c.baseW; c.th = c.baseH; c.pull = 0.02; });
-  } else {                                          // çıkış: kolaja geri topla
-    cards.forEach(c => { c.el.style.opacity = ''; c.el.style.zIndex = ''; });
+  } else exitOrbit();
+}
+function exitOrbit() { // SARMAL DAĞILMA: kartlar döne döne birbirinden ayrılır, sonra kolaja süzülür
+  orbitMode = false;
+  cards.forEach(c => { c.el.style.opacity = ''; c.el.style.zIndex = ''; });
+  const cx0 = innerWidth / 2, cy0 = innerHeight * 0.46;
+  cards.forEach((c, i) => {
+    const ax = c.x + c.w / 2 - cx0, ay = c.y + c.h / 2 - cy0;
+    const L = Math.max(60, Math.hypot(ax, ay));
+    c.vx = (-ay / L) * 9 + (ax / L) * 3.5;          // teğet + dışa: sarmal savrulma
+    c.vy = ( ax / L) * 9 + (ay / L) * 3.5;
+    c.trot = (i % 2 ? 1 : -1) * 55;                  // döne döne
+    c.tx = c.x; c.ty = c.y; c.pull = 0.005;
+    c.tw = c.baseW * 0.7; c.th = c.baseH * 0.7;
+  });
+  sndWhoosh(1);
+  clearTimeout(regatherT);
+  regatherT = setTimeout(() => {                     // savrulma bitince kolaja dönüş
     layoutMode = 0; collageTargets();
-    cards.forEach((c, i) => setTimeout(() => {
-      c.pull = 0.14;
-      c.el.classList.remove('warp'); void c.el.offsetWidth; c.el.classList.add('warp');
-    }, i * 16));
-  }
+    cards.forEach((c, i) => {
+      c.tw = c.baseW; c.th = c.baseH; c.trot = (Math.random() - .5) * 18;
+      setTimeout(() => {
+        c.pull = 0.12;
+        c.el.classList.remove('warp'); void c.el.offsetWidth; c.el.classList.add('warp');
+      }, i * 16);
+    });
+    sndShuffle();
+  }, 1900);
 }
 function swipeScatter(dir, wx, wy) { // 🖐️➡️ SAVURMA: kartlar savurma yönünde küçülüp uçuşur, sonra kolaja döner
   wx = wx ?? innerWidth / 2; wy = wy ?? innerHeight / 2;
@@ -942,12 +963,31 @@ function loop(tNow) {
       c.vx = nx - c.x; c.vy = ny - c.y;
       c.x = nx; c.y = ny;
     } else if (orbitMode) {
-      // 3D YÖRÜNGE: elips halka; öndekiler büyük/parlak, arkadakiler küçük/soluk
-      const th2 = orbitA + (c.oi / Math.max(1, cards.length)) * Math.PI * 2;
+      // 3D YÖRÜNGE: 4 formasyon — öndekiler büyük/parlak, arkadakiler küçük/soluk
+      const f = c.oi / Math.max(1, cards.length);
       const R = Math.min(innerWidth * 0.38, 620);
-      const depth = Math.sin(th2);                            // -1 arka .. +1 ön
-      const ox = innerWidth / 2 + Math.cos(th2) * R - c.baseW / 2;
-      const oy = innerHeight * 0.46 + depth * innerHeight * 0.07 - c.baseH / 2;
+      const cx0 = innerWidth / 2, cy0 = innerHeight * 0.46;
+      let th2 = orbitA + f * Math.PI * 2, depth, ox, oy;
+      if (orbitType === 1) {          // 🧬 SARMAL KULE: dikey spiral, çift tur
+        th2 = orbitA * 1.15 + f * Math.PI * 4;
+        depth = Math.sin(th2);
+        ox = cx0 + Math.cos(th2) * R * 0.55 - c.baseW / 2;
+        oy = innerHeight * (0.14 + 0.62 * f) + depth * 8 - c.baseH / 2;
+      } else if (orbitType === 2) {   // ∞ SONSUZLUK: yatay sekiz çizer
+        depth = Math.sin(th2 * 2 + 1);
+        ox = cx0 + Math.sin(th2) * R - c.baseW / 2;
+        oy = cy0 + Math.sin(th2 * 2) * innerHeight * 0.16 - c.baseH / 2;
+      } else if (orbitType === 3) {   // 🌌 GALAKSİ DİSKİ: içtekiler hızlı döner (diferansiyel)
+        const rr = R * (0.3 + 0.7 * f);
+        th2 = orbitA * (1.7 - 0.9 * f) + f * Math.PI * 5;
+        depth = Math.sin(th2) * (0.4 + 0.6 * f);
+        ox = cx0 + Math.cos(th2) * rr - c.baseW / 2;
+        oy = cy0 + Math.sin(th2) * rr * 0.38 - c.baseH / 2;
+      } else {                        // 💍 HALKA: klasik elips
+        depth = Math.sin(th2);
+        ox = cx0 + Math.cos(th2) * R - c.baseW / 2;
+        oy = cy0 + depth * innerHeight * 0.07 - c.baseH / 2;
+      }
       c.x += (ox - c.x) * 0.09 * dt; c.y += (oy - c.y) * 0.09 * dt;
       c.vx = 0; c.vy = 0; c.tx = c.x; c.ty = c.y;
       c.w += (c.tw - c.w) * 0.14 * dt; c.h += (c.th - c.h) * 0.14 * dt;
@@ -1230,16 +1270,24 @@ function onResults(res) {
     parTX = 0; parTY = 0;   // kart taşırken arka plan sabitlenir (baş dönmesi olmasın)
   } else {
     const palm = pts.find(q => q.open);
-    // 🖐️➡️ SAVURMA: açık el hızla sağa/sola süpürülünce kartlar o yöne bulut gibi savrulur
-    // (yörünge modunda ve iki el birbirine yakınken devre dışı — alkışla karışmasın)
-    if (palm && !orbitMode && !(pts.length === 2 && twoDist !== null && twoDist < 320)) {
+    // 🖐️➡️ SAVURMA: açık el hızla süpürülünce — normalde bulut dağılması,
+    // YÖRÜNGEDEYKEN formasyon değiştirir (halka→sarmal→sonsuzluk→galaksi).
+    // İki el birbirine yakınken devre dışı (alkışla karışmasın).
+    if (palm && !(pts.length === 2 && twoDist !== null && twoDist < 320)) {
       if (swipePrev !== null) {
         swipeV = swipeV * 0.6 + (palm.palmX - swipePrev) * 0.4;   // yumuşatılmış yatay hız
         if (Math.abs(swipeV) > 38 && performance.now() - lastSwipe > 1600
             && performance.now() - releaseAt > 600) {
           lastSwipe = performance.now();
           swipeV = 0;
-          swipeScatter(Math.sign(palm.palmX - swipePrev) || 1, palm.palmX, palm.palmY);
+          if (orbitMode) {
+            orbitType = (orbitType + 1) % 4;                       // sıradaki formasyon
+            for (let k = 0; k < 3; k++)
+              waves.push({ x: palm.palmX, y: palm.palmY, r: 12 + k * 24, s: 14 + k * 4, life: 1 });
+            sndShuffle();
+          } else {
+            swipeScatter(Math.sign(palm.palmX - swipePrev) || 1, palm.palmX, palm.palmY);
+          }
         }
       }
       swipePrev = palm.palmX;
