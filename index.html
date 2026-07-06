@@ -218,6 +218,12 @@
   body.reel #scan { display: none; }
   body.reel .slot .sl-cnt { display: none; }                 /* kompakt ikon: sadece ad + bar */
   body.reel .slot .sl-name { font-size: 9px; letter-spacing: 1px; }
+  /* HAYALET YUVALAR: normalde görünmez — sadece elde fotoğraf varken belirir (ekran temiz kalır) */
+  body.reel .slot { opacity: 0; transition: opacity .4s ease;
+    background: rgba(4,10,24,.30); border-color: rgba(103,232,249,.30);
+    backdrop-filter: none; box-shadow: none; }               /* blur yok: performans */
+  body.reel.holding .slot { opacity: .5; }
+  body.reel.holding .slot.hot { opacity: 1; }
   body { perspective: 1200px; }  /* 3D yörünge modu için derinlik */
   .card.aim { /* nişan: parmağın altındaki fotoğraf işaretlenir */
     box-shadow: 0 0 0 2px rgba(165,243,252,.95), 0 0 26px rgba(103,232,249,.6),
@@ -796,7 +802,7 @@ function reshuffle() {
   spark(innerWidth / 2, innerHeight / 2, 40, 9);
   sndShuffle();
 }
-const MAX_WALL = 36; // duvarda aynı anda en fazla bu kadar kart uçar
+const MAX_WALL = REEL ? 22 : 36; // reel: az kart = akıcı animasyon + temiz ekran; normal: 36
 async function spawnCards() {
   document.querySelectorAll('.card').forEach(e => e.remove());
   cards.length = 0;
@@ -906,7 +912,7 @@ function spark(x, y, n, spread) {
   });
 }
 function ambientDust(dt) {
-  if (Math.random() < (REEL ? .45 : .12) * dt) sparks.push({   // reel: uçuşan parçacık bol (referans havası)
+  if (Math.random() < (REEL ? .2 : .12) * dt) sparks.push({   // reel: hafif parçacık (performans dengeli)
     x: Math.random() * innerWidth, y: innerHeight * (0.25 + Math.random() * .8),
     vx: (Math.random() - .5) * .5, vy: -(.25 + Math.random() * .55),
     life: 1, big: Math.random() < .3, slow: true
@@ -941,6 +947,8 @@ function loop(tNow) {
 
   // ✋ ORGANİK AKIŞ PARALAKSI (referans video): her kart hedefe KENDİ hızında süzülür —
   // yakınlar çevik, uzaklar gecikmeli yetişir; bulut dalga gibi akar, ekrandan çıkmaz.
+
+  if (REEL) document.body.classList.toggle('holding', !!held); // hayalet yuvalar: elde kart varken görünür
 
   // yuva vurgusu: tutulan kart yuvada KISA SÜRE beklerse emilir (üzerinden geçerken yutmaz)
   let hotSlot = null;
