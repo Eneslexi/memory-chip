@@ -219,9 +219,9 @@
   body.reel .slot .sl-cnt { display: none; }                 /* kompakt ikon: sadece ad + bar */
   body.reel .slot .sl-name { font-size: 9px; letter-spacing: 1px; }
   /* HAYALET YUVALAR: normalde görünmez — sadece elde fotoğraf varken belirir (ekran temiz kalır) */
-  body.reel .slot { opacity: 0; transition: opacity .4s ease;
+  body.reel .slot { opacity: 0; transition: opacity .4s ease; pointer-events: none;
     background: rgba(4,10,24,.30); border-color: rgba(103,232,249,.30);
-    backdrop-filter: none; box-shadow: none; }               /* blur yok: performans */
+    backdrop-filter: none; box-shadow: none; }               /* blur yok: performans; tıklanamaz */
   body.reel.holding .slot { opacity: .5; }
   body.reel.holding .slot.hot { opacity: 1; }
   body { perspective: 1200px; }  /* 3D yörünge modu için derinlik */
@@ -596,6 +596,7 @@ function bmRender() {
   bmRAF = requestAnimationFrame(bmRender);
 }
 async function openAlbum(slot) {
+  if (REEL) return;   // REEL: albüm görüntüleyici hiçbir yoldan açılamaz — akış kesilmez
   const v = document.getElementById('albumView');
   document.getElementById('bmName').textContent = slot.label;
   const strip = document.getElementById('bmStrip');
