@@ -1147,13 +1147,40 @@ function fingerExtended(lm, tip, pip) {
          Math.hypot(lm[pip].x - w.x, lm[pip].y - w.y) * 1.12;
 }
 
+// ===== EL TİTREME FİLTRESİ: uyarlanabilir EMA — duruşta taş gibi sabit, hızlıda gecikmesiz =====
+let smoothHands = [];
+function smoothLandmarks(raw) {
+  const out = [], used = new Set();
+  for (const lm of raw) {
+    let best = null, bd = 0.25;               // en yakın önceki eli eşle (eller yer değiştirse de)
+    smoothHands.forEach((sh, i) => {
+      if (used.has(i)) return;
+      const d = Math.hypot(sh[0].x - lm[0].x, sh[0].y - lm[0].y);
+      if (d < bd) { bd = d; best = i; }
+    });
+    if (best === null) out.push(lm.map(p => ({ x: p.x, y: p.y })));
+    else {
+      used.add(best);
+      const prev = smoothHands[best];
+      out.push(lm.map((p, j) => {
+        const q = prev[j];
+        const d = Math.hypot(p.x - q.x, p.y - q.y);
+        const a = Math.min(0.8, 0.12 + d * 26);   // yavaş=güçlü filtre, hızlı=çevik takip
+        return { x: q.x + (p.x - q.x) * a, y: q.y + (p.y - q.y) * a };
+      }));
+    }
+  }
+  smoothHands = out;
+  return out;
+}
+
 function onResults(res) {
-  const hs = res.multiHandLandmarks || [];
-  drawHands(hs.slice(0, 2));   // eklem renkli iskelet — kullanıcı elinin görüldüğünü bilir
+  const hs = smoothLandmarks((res.multiHandLandmarks || []).slice(0, 2));
+  drawHands(hs);   // eklem renkli iskelet — filtreden geçmiş, titremez
   dots.forEach(d => d.style.display = 'none');
   const pts = [];
 
-  hs.slice(0, 2).forEach((lm, hi) => {
+  hs.forEach((lm, hi) => {   // zaten filtreli ve en fazla 2 el
     const th = lm[4], ix = lm[8];
     const d = Math.hypot(th.x - ix.x, th.y - ix.y);
     const wasPinch = pinchState[hi];
