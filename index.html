@@ -1089,31 +1089,36 @@ const HAND_CONN = [ // MediaPipe kemik bağlantıları
   [0,17]                          // avuç kenarı
 ];
 const JOINT_COLOR = i =>
-  i === 0                       ? '#e11d2e' :  // bilek (CMC) kırmızı
-  [1,5,9,13,17].includes(i)     ? '#ffd23e' :  // boğumlar (MCP) sarı
-                                  '#ff8fa8';   // orta eklem + uçlar (IP) pembe
+  i === 0                       ? '#ff2038' :  // bilek (CMC) kırmızı — kamera için doygun
+  [1,5,9,13,17].includes(i)     ? '#ffcf28' :  // boğumlar (MCP) sarı
+                                  '#ff5c8a';   // orta eklem + uçlar (IP) canlı pembe
 function drawHands(hands) {
   hctx.clearRect(0, 0, hc.width, hc.height);
   for (const lm of hands) {
     const px = i => (1 - lm[i].x) * innerWidth;   // aynalı
     const py = i => lm[i].y * innerHeight;
-    // kemikler
-    hctx.strokeStyle = 'rgba(240,248,255,.45)';
-    hctx.lineWidth = 2;
+    // kemikler — TELEFON KAMERASI İÇİN: önce koyu kontur (kontrast), üstüne kalın parlak çizgi
+    hctx.lineCap = 'round';
+    hctx.strokeStyle = 'rgba(2,6,16,.55)';
+    hctx.lineWidth = 7;
     hctx.beginPath();
     for (const [a, b] of HAND_CONN) { hctx.moveTo(px(a), py(a)); hctx.lineTo(px(b), py(b)); }
     hctx.stroke();
-    // eklem noktaları (glow sadece uçlarda — performans)
+    hctx.strokeStyle = 'rgba(190,242,255,.95)';
+    hctx.lineWidth = 3.5;
+    hctx.shadowColor = '#67e8f9'; hctx.shadowBlur = 10;
+    hctx.stroke();                                 // aynı path'i parlak + glow ile tekrar çiz
     hctx.shadowBlur = 0;
+    // eklem noktaları: hepsi büyük + glow'lu (kamerada net okunsun)
     for (let i = 0; i < 21; i++) {
       const tip = [4,8,12,16,20].includes(i);
       hctx.fillStyle = JOINT_COLOR(i);
-      if (tip) { hctx.shadowColor = JOINT_COLOR(i); hctx.shadowBlur = 10; }
+      hctx.shadowColor = JOINT_COLOR(i); hctx.shadowBlur = 14;
       hctx.beginPath();
-      hctx.arc(px(i), py(i), (i === 0 ? 6 : tip ? 5 : 3.6), 0, 7);
+      hctx.arc(px(i), py(i), (i === 0 ? 9 : tip ? 7.5 : 5.5), 0, 7);
       hctx.fill();
-      if (tip) hctx.shadowBlur = 0;
     }
+    hctx.shadowBlur = 0;
   }
 }
 
