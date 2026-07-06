@@ -213,9 +213,11 @@
   .dot.pinch { width: 14px; height: 14px; background: rgba(255,214,240,.95); box-shadow: 0 0 26px #ffd6f0; }
   .dot.palm  { width: 40px; height: 40px; border-style: dashed; background: transparent; }
 
-  /* ---- REEL çekim modu (?reel): temiz sahne — kamera + kartlar + el iskeleti ---- */
-  body.reel .chip, body.reel .slot, body.reel .hud, body.reel .dot { display: none !important; }
+  /* ---- REEL çekim modu (?reel): temiz sahne — kamera + kartlar + el iskeleti + mini albümler ---- */
+  body.reel .chip, body.reel .hud, body.reel .dot { display: none !important; }
   body.reel #scan { display: none; }
+  body.reel .slot .sl-cnt { display: none; }                 /* kompakt ikon: sadece ad + bar */
+  body.reel .slot .sl-name { font-size: 9px; letter-spacing: 1px; }
   body { perspective: 1200px; }  /* 3D yörünge modu için derinlik */
   .card.aim { /* nişan: parmağın altındaki fotoğraf işaretlenir */
     box-shadow: 0 0 0 2px rgba(165,243,252,.95), 0 0 26px rgba(103,232,249,.6),
@@ -337,7 +339,7 @@
     </g>
   </svg>
 </div>
-<div class="chip" id="chipGest">👌 Pinch = Grab · 🤏↔️ Spread = Zoom · 🖐️ Open = Drop · 🖐️➡️ Swipe = Scatter · 👏 Clap = 3D Orbit</div>
+<div class="chip" id="chipGest">👌 Pinch = Grab · 🤏↔️ Spread = Zoom · 🖐️ Open = Drop · ⚡ Flick = Throw · 🖐️➡️ Swipe = Scatter · 👏 Clap = 3D Orbit</div>
 <div class="dot" id="dot0"></div>
 <div class="dot" id="dot1"></div>
 <div id="startOverlay"><h1>AIRCHIP</h1><button id="startBtn">START</button></div>
@@ -520,7 +522,8 @@ const DB = {
 
 // ================= SOL ARŞİV YUVALARI (dinamik, DB'den) =================
 let SLOTS = [];
-const slotW = Math.round(150 * S), slotH = Math.round(104 * S), slotGap = Math.round(52 * S); // yuvalar ayrık: yanlış albüme atma azalır
+const slotW = Math.round((REEL ? 106 : 150) * S), slotH = Math.round((REEL ? 68 : 104) * S),
+      slotGap = Math.round(52 * S); // reel: kompakt ikonlar; normal: yuvalar ayrık (yanlış albüme atma azalır)
 function slotUI(s) {
   s.el.querySelector('.sl-cnt').textContent = `${s.count} PICS`;
   s.el.querySelector('.sl-bar i').style.width = Math.min(100, s.count * 12) + '%';
@@ -539,6 +542,14 @@ function createSlot(rec) {
   return s;
 }
 function layoutSlots() {
+  if (REEL) {           // reel: SOL ALTA kompakt ikon sırası — tut & bırak için
+    const y = innerHeight - slotH - 14;
+    SLOTS.forEach((s, i) => {
+      s.x = 14 + i * (slotW + 12); s.y = y;
+      s.el.style.left = s.x + 'px'; s.el.style.top = s.y + 'px';
+    });
+    return;
+  }
   const totalH = SLOTS.length * slotH + (SLOTS.length - 1) * slotGap;
   const y0 = Math.max(96, (innerHeight - totalH) / 2);
   SLOTS.forEach((s, i) => {
@@ -1067,6 +1078,8 @@ let releaseAt = 0;     // son bırakma anı (avuç jestleriyle çakışmayı ön
 let swipePrev = null, swipeV = 0, lastSwipe = 0;   // 🖐️➡️ savurma algılama
 let twoDist = null, clapV = 0, lastClap = 0;       // 👏 alkış algılama
 let aimed = null;                                  // 🎯 parmağın altındaki kart (nişan)
+let heldAt = 0, heldPrevX = null, heldPrevY = null; // ↔️ fırlatma algılama
+let openStreak = 0;                                 // bırakma: avuç KALICI açık olmalı (zoom'da kaçmasın)
 
 function airPress(el) { // havadan buton basma: görsel bastırma + klik
   el.classList.remove('press'); void el.offsetWidth; el.classList.add('press');
@@ -1129,9 +1142,11 @@ function onResults(res) {
   }
   if (uiHit && uiHit.p.pinchNew) { airPress(uiHit.ui); return; }
 
-  // BIRAKMA: el kadrajdan çıktı VEYA avuç tamamen açıldı ("elini aç = bırak")
+  // BIRAKMA: el kadrajdan çıktı VEYA avuç ~0.3sn boyunca açık kaldı
+  // (zoom sırasında parmaklar anlık açılınca kart elden KAÇMASIN diye süre şartı)
   const hp = holdHand >= 0 && holdHand < pts.length ? pts[holdHand] : null;
-  if (held && (!hp || hp.open)) {
+  if (held) openStreak = (hp && hp.open) ? openStreak + 1 : 0;
+  if (held && (!hp || openStreak > 8)) {
     spark(held.x + held.w / 2, held.y + held.h / 2, 16, 5);
     held.tw = held.baseW; held.th = held.baseH;
     held.trot = (Math.random() - .5) * 26;
@@ -1172,6 +1187,7 @@ function onResults(res) {
           held = c; holdHand = hi; c.el.classList.add('held');
           c.el.classList.remove('aim'); if (aimed === c) aimed = null;
           c.el.style.opacity = ''; c.el.style.zIndex = '';    // yörünge kalıntısı temizle
+          heldAt = performance.now(); heldPrevX = heldPrevY = null; openStreak = 0;
           spark(pts[hi].x, pts[hi].y, 12, 4);
           c.trot = 0;
           cards.splice(cards.indexOf(c), 1); cards.push(c);
@@ -1184,16 +1200,33 @@ function onResults(res) {
   // SÜRÜKLEME + telefon usulü BÜYÜTME: başparmak-işaret arası açıldıkça kart büyür
   if (held) {
     const p = pts[holdHand];
-    held.tx = p.x - held.w / 2; held.ty = p.y - held.h / 2;
-    spark(p.x, p.y, 1, 2.5);
-    // ELDE DEV BASKI HİSSİ (referans reel): tutulan kart ekranın en az ~%30'u kadar,
-    // parmaklar açıldıkça %80'e dek büyür; el hızıyla hafifçe yatar (fiziksel fotoğraf gibi)
-    const k = Math.min(3.8, Math.max(1.7, 1 + (p.d - 0.055) * 14));
-    const ratio = held.baseH / held.baseW;
-    const gw = Math.min(Math.max(held.baseW * 1.35 * k, innerWidth * 0.30),
-                        innerWidth * 0.8, (innerHeight * 0.74) / ratio);
-    held.tw = gw; held.th = gw * ratio;
-    held.trot = Math.max(-18, Math.min(18, held.vx * 1.8));   // el hareketiyle sallanma
+    // ↔️ FIRLATMA: kart eldeyken hızlı yatay itiş = kart elden dönerek fırlar
+    const hvx = heldPrevX === null ? 0 : p.x - heldPrevX;
+    const hvy = heldPrevY === null ? 0 : p.y - heldPrevY;
+    heldPrevX = p.x; heldPrevY = p.y;
+    if (Math.abs(hvx) > 55 && performance.now() - heldAt > 350) {
+      const c = held, dir = Math.sign(hvx);
+      c.vx = hvx * 1.25; c.vy = hvy * 0.8;        // itiş hızıyla uçar, duvardan seker
+      c.tw = c.baseW; c.th = c.baseH;
+      c.tx = c.x; c.ty = c.y; c.pull = 0.01;
+      c.trot = dir * 42;                           // fırlarken döner
+      spark(c.x + c.w / 2, c.y + c.h / 2, 26, 9);
+      sndWhoosh(1);
+      c.el.classList.remove('held');
+      held = null; holdHand = -1; openStreak = 0;
+      releaseAt = performance.now();
+    } else {
+      held.tx = p.x - held.w / 2; held.ty = p.y - held.h / 2;
+      spark(p.x, p.y, 1, 2.5);
+      // ELDE DEV BASKI HİSSİ (referans reel): tutulan kart ekranın en az ~%30'u kadar,
+      // parmaklar açıldıkça %80'e dek büyür; el hızıyla hafifçe yatar (fiziksel fotoğraf gibi)
+      const k = Math.min(3.8, Math.max(1.7, 1 + (p.d - 0.055) * 14));
+      const ratio = held.baseH / held.baseW;
+      const gw = Math.min(Math.max(held.baseW * 1.35 * k, innerWidth * 0.30),
+                          innerWidth * 0.8, (innerHeight * 0.74) / ratio);
+      held.tw = gw; held.th = gw * ratio;
+      held.trot = Math.max(-18, Math.min(18, held.vx * 1.8));   // el hareketiyle sallanma
+    }
     parTX = 0; parTY = 0;   // kart taşırken arka plan sabitlenir (baş dönmesi olmasın)
   } else {
     const palm = pts.find(q => q.open);
