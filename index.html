@@ -1082,11 +1082,14 @@ function onResults(res) {
     const p = pts[holdHand];
     held.tx = p.x - held.w / 2; held.ty = p.y - held.h / 2;
     spark(p.x, p.y, 1, 2.5);
-    // tutar tutmaz kart KAMERAYA FIRLAR (referans reel): taban 1.7x, parmaklar açıldıkça 3.8x'e dek
+    // ELDE DEV BASKI HİSSİ (referans reel): tutulan kart ekranın en az ~%30'u kadar,
+    // parmaklar açıldıkça %80'e dek büyür; el hızıyla hafifçe yatar (fiziksel fotoğraf gibi)
     const k = Math.min(3.8, Math.max(1.7, 1 + (p.d - 0.055) * 14));
     const ratio = held.baseH / held.baseW;
-    const gw = Math.min(held.baseW * 1.35 * k, innerWidth * 0.8, (innerHeight * 0.74) / ratio);
+    const gw = Math.min(Math.max(held.baseW * 1.35 * k, innerWidth * 0.30),
+                        innerWidth * 0.8, (innerHeight * 0.74) / ratio);
     held.tw = gw; held.th = gw * ratio;
+    held.trot = Math.max(-18, Math.min(18, held.vx * 1.8));   // el hareketiyle sallanma
     parTX = 0; parTY = 0;   // kart taşırken arka plan sabitlenir (baş dönmesi olmasın)
   } else {
     const palm = pts.find(q => q.open);
