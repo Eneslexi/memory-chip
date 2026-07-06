@@ -350,7 +350,7 @@
     </g>
   </svg>
 </div>
-<div class="chip" id="chipGest">👌 Pinch = Grab · 🤏↔️ Spread = Zoom · 🖐️ Open = Drop · ⚡ Flick = Throw · 🖐️➡️ Swipe = Scatter · 👏 Clap = 3D Orbit</div>
+<div class="chip" id="chipGest">👌 Grab · 🤏↔️ Zoom · 🖐️ Drop · ⚡ Throw · 🖐️➡️ Scatter · 👏 Orbit → 🖐️← Helix · 🖐️→ Infinity · ✊ Ring</div>
 <div class="dot" id="dot0"></div>
 <div class="dot" id="dot1"></div>
 <div id="startOverlay"><h1>AIRCHIP</h1><button id="startBtn">START</button></div>
@@ -761,7 +761,7 @@ function toggleOrbit(wx, wy) {
   spark(wx, wy, 26, 7);
   sndShuffle();
   if (!orbitMode) {
-    orbitMode = true;
+    orbitMode = true; orbitType = 0;   // giriş her zaman 💍 HALKA ile — öngörülebilir
     cards.forEach((c, i) => { c.oi = i; c.tw = c.baseW; c.th = c.baseH; c.pull = 0.02; });
   } else exitOrbit();
 }
@@ -1024,12 +1024,6 @@ function loop(tNow) {
         depth = Math.sin(th2 * 2 + 1);
         ox = cx0 + Math.sin(th2) * R - c.baseW / 2;
         oy = cy0 + Math.sin(th2 * 2) * innerHeight * 0.16 - c.baseH / 2;
-      } else if (orbitType === 3) {   // 🌌 GALAKSİ DİSKİ: içtekiler hızlı döner (diferansiyel)
-        const rr = R * (0.3 + 0.7 * f);
-        th2 = orbitA * (1.7 - 0.9 * f) + f * Math.PI * 5;
-        depth = Math.sin(th2) * (0.4 + 0.6 * f);
-        ox = cx0 + Math.cos(th2) * rr - c.baseW / 2;
-        oy = cy0 + Math.sin(th2) * rr * 0.38 - c.baseH / 2;
       } else {                        // 💍 HALKA: klasik elips
         depth = Math.sin(th2);
         ox = cx0 + Math.cos(th2) * R - c.baseW / 2;
@@ -1185,6 +1179,7 @@ const pinchState = [false, false];
 let prevPalm = null;
 let releaseAt = 0;     // son bırakma anı (avuç jestleriyle çakışmayı önler)
 let swipePrev = null, swipeV = 0, lastSwipe = 0;   // 🖐️➡️ savurma algılama
+let fistStreak = 0;                                // ✊ yumruk: birkaç kare sürmeli (gürültü önleme)
 let twoDist = null, clapV = 0, lastClap = 0;       // 👏 alkış algılama
 let aimed = null;                                  // 🎯 parmağın altındaki kart (nişan)
 let heldAt = 0, heldPrevX = null, heldPrevY = null; // ↔️ fırlatma algılama
@@ -1245,12 +1240,15 @@ function onResults(res) {
     const open = !pinchState[hi] &&
       fingerExtended(lm, 8, 6) && fingerExtended(lm, 12, 10) &&
       fingerExtended(lm, 16, 14) && fingerExtended(lm, 20, 18);
+    const fist = !pinchState[hi] && !open &&                     // ✊ yumruk: dört parmak kıvrık
+      !fingerExtended(lm, 8, 6) && !fingerExtended(lm, 12, 10) &&
+      !fingerExtended(lm, 16, 14) && !fingerExtended(lm, 20, 18);
     const x = (1 - (th.x + ix.x) / 2) * innerWidth;
     const y = ((th.y + ix.y) / 2) * innerHeight;
     const palmX = (1 - lm[9].x) * innerWidth;
     const palmY = lm[9].y * innerHeight;
     const span = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y) || 0.001; // avuç boyu: uzaklık normalizasyonu
-    pts.push({ x, y, pinch: pinchState[hi], pinchNew: pinchState[hi] && !wasPinch, open, palmX, palmY, d, span });
+    pts.push({ x, y, pinch: pinchState[hi], pinchNew: pinchState[hi] && !wasPinch, open, fist, palmX, palmY, d, span });
     const dot = dots[hi];
     dot.style.display = 'block';
     dot.style.left = x + 'px'; dot.style.top = y + 'px';
@@ -1395,19 +1393,31 @@ function onResults(res) {
         if (Math.abs(swipeV) > 38 && performance.now() - lastSwipe > 1600
             && performance.now() - releaseAt > 600) {
           lastSwipe = performance.now();
+          const dir2 = Math.sign(palm.palmX - swipePrev) || 1;
           swipeV = 0;
           if (orbitMode) {
-            orbitType = (orbitType + 1) % 4;                       // sıradaki formasyon
+            // YÖN = FORMASYON: sağdan sola 🧬 sarmal kule, soldan sağa ∞ sonsuzluk
+            orbitType = dir2 < 0 ? 1 : 2;
             for (let k = 0; k < 3; k++)
               waves.push({ x: palm.palmX, y: palm.palmY, r: 12 + k * 24, s: 14 + k * 4, life: 1 });
             sndShuffle();
           } else {
-            swipeScatter(Math.sign(palm.palmX - swipePrev) || 1, palm.palmX, palm.palmY);
+            swipeScatter(dir2, palm.palmX, palm.palmY);
           }
         }
       }
       swipePrev = palm.palmX;
     } else { swipePrev = null; swipeV = 0; }
+    // ✊ YUMRUK (yörüngedeyken): 💍 HALKA düzenine dön — birkaç kare sürmeli, gürültüde tetiklenmez
+    const fistP = pts.find(q => q.fist);
+    fistStreak = (orbitMode && fistP) ? fistStreak + 1 : 0;
+    if (orbitMode && fistStreak > 6 && orbitType !== 0 && performance.now() - lastSwipe > 800) {
+      lastSwipe = performance.now(); fistStreak = 0;
+      orbitType = 0;
+      for (let k = 0; k < 3; k++)
+        waves.push({ x: fistP.palmX, y: fistP.palmY, r: 12 + k * 24, s: 14 + k * 4, life: 1 });
+      sndShuffle();
+    }
     // SENKRON PARALAKS hedefi: herhangi bir el (poz fark etmez) ekranda gezindikçe
     // galeri onunla döner — parmakla daire çiz, fotoğraflar daire çizsin.
     const anyHand = pts[0];
