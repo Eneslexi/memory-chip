@@ -366,6 +366,7 @@ if (IS_MOBILE) addEventListener('DOMContentLoaded', () => {
 const REEL = new URLSearchParams(location.search).has('reel'); // çekim modu: UI gizli, sahne temiz
 if (REEL) document.body.classList.add('reel');
 const S = Math.min(1, innerWidth / 980) * (IS_MOBILE ? 1.15 : 1); // genel ölçek
+const GS = Math.max(0.35, Math.min(1, innerWidth / 1400)); // jest eşikleri ekranla ölçeklenir (telefonda da tetiklenir)
 const LERP = 0.16, DAMP = 0.985;
 const cards = [];
 let held = null, holdHand = -1, scaleBase = null, grabHandSize = null;
@@ -663,7 +664,7 @@ function absorb(card, slot) { // fotoğraf küçülerek yuvaya emilir
 // ================= KARTLAR =================
 function makeCard(ph, i) { // ph: {src, name, rec?} — rec = DB kaydı (kullanıcı fotoğrafı)
   // REEL: referans gibi — TEK TİP boyut (hepsi eşit polaroid)
-  const w = (REEL ? 96 : 88 + Math.random() * 58) * S;
+  const w = (REEL ? (IS_MOBILE ? 128 : 96) : 88 + Math.random() * 58) * S;
   const HF = REEL ? 1.22 : 1.06;                       // portre oran (etiketsiz) / klasik kart
   const dNorm = REEL ? Math.random() : (w / S - 88) / 58;  // reel: derinlik katmanı rastgele (hareket çeşitliliği)
   const el = document.createElement('div');
@@ -833,7 +834,7 @@ function reshuffle() {
   spark(innerWidth / 2, innerHeight / 2, 40, 9);
   sndShuffle();
 }
-const MAX_WALL = REEL ? 34 : 36; // reel: kalabalık duvar (referans yoğunluğu) // reel: az kart = akıcı animasyon + temiz ekran; normal: 36
+const MAX_WALL = REEL ? (IS_MOBILE ? 16 : 34) : 36; // reel: masaüstü kalabalık, mobil hafif // reel: az kart = akıcı animasyon + temiz ekran; normal: 36
 async function spawnCards() {
   document.querySelectorAll('.card').forEach(e => e.remove());
   cards.length = 0;
@@ -948,7 +949,7 @@ function spark(x, y, n, spread) {
   });
 }
 function ambientDust(dt) {
-  if (Math.random() < (REEL ? .2 : .12) * dt) sparks.push({   // reel: hafif parçacık (performans dengeli)
+  if (Math.random() < (REEL ? (IS_MOBILE ? .08 : .2) : .12) * dt) sparks.push({   // reel: hafif parçacık (performans dengeli)
     x: Math.random() * innerWidth, y: innerHeight * (0.25 + Math.random() * .8),
     vx: (Math.random() - .5) * .5, vy: -(.25 + Math.random() * .55),
     life: 1, big: Math.random() < .3, slow: true
@@ -987,7 +988,7 @@ function loop(tNow) {
   if (REEL) document.body.classList.toggle('holding', !!held); // hayalet yuvalar: elde kart varken görünür
 
   // 🌊 İTME ALANI (yalnız reel): el yaklaşınca kartlar yumuşakça YOL VERİR — elle senkron his
-  const REPEL_R = 250;
+  const REPEL_R = 250 * GS;
 
   // yuva vurgusu: tutulan kart yuvada KISA SÜRE beklerse emilir (üzerinden geçerken yutmaz)
   let hotSlot = null;
@@ -1149,20 +1150,20 @@ function drawHands(hands) {
     // kemikler — TELEFON KAMERASI İÇİN: önce koyu kontur (kontrast), üstüne kalın parlak çizgi
     hctx.lineCap = 'round';
     hctx.strokeStyle = 'rgba(2,6,16,.55)';
-    hctx.lineWidth = 7;
+    hctx.lineWidth = IS_MOBILE ? 5 : 7;
     hctx.beginPath();
     for (const [a, b] of HAND_CONN) { hctx.moveTo(px(a), py(a)); hctx.lineTo(px(b), py(b)); }
     hctx.stroke();
     hctx.strokeStyle = 'rgba(190,242,255,.95)';
-    hctx.lineWidth = 3.5;
-    hctx.shadowColor = '#67e8f9'; hctx.shadowBlur = 10;
+    hctx.lineWidth = IS_MOBILE ? 2.5 : 3.5;
+    hctx.shadowColor = '#67e8f9'; hctx.shadowBlur = IS_MOBILE ? 0 : 10;
     hctx.stroke();                                 // aynı path'i parlak + glow ile tekrar çiz
     hctx.shadowBlur = 0;
     // eklem noktaları: hepsi büyük + glow'lu (kamerada net okunsun)
     for (let i = 0; i < 21; i++) {
       const tip = [4,8,12,16,20].includes(i);
       hctx.fillStyle = JOINT_COLOR(i);
-      hctx.shadowColor = JOINT_COLOR(i); hctx.shadowBlur = 14;
+      hctx.shadowColor = JOINT_COLOR(i); hctx.shadowBlur = IS_MOBILE ? 0 : 14;
       hctx.beginPath();
       hctx.arc(px(i), py(i), (i === 0 ? 9 : tip ? 7.5 : 5.5), 0, 7);
       hctx.fill();
@@ -1309,7 +1310,7 @@ function onResults(res) {
     const dd = Math.hypot(pts[0].palmX - pts[1].palmX, pts[0].palmY - pts[1].palmY);
     if (twoDist !== null) {
       clapV = clapV * 0.5 + (twoDist - dd) * 0.5;             // yaklaşma hızı (yumuşatılmış)
-      if (dd < 150 && clapV > 15 && performance.now() - lastClap > 2000 && !held) {
+      if (dd < 150 * GS && clapV > 15 * GS && performance.now() - lastClap > 2000 && !held) {
         lastClap = performance.now();
         lastSwipe = performance.now();                         // alkış savurmayı tetiklemesin
         clapV = 0;
@@ -1354,7 +1355,7 @@ function onResults(res) {
     const hvx = heldPrevX === null ? 0 : p.x - heldPrevX;
     const hvy = heldPrevY === null ? 0 : p.y - heldPrevY;
     heldPrevX = p.x; heldPrevY = p.y;
-    if (Math.abs(hvx) > 62 && Math.abs(hvx) > Math.abs(hvy) * 1.6
+    if (Math.abs(hvx) > 62 * GS && Math.abs(hvx) > Math.abs(hvy) * 1.6
         && performance.now() - heldAt > 350
         && performance.now() - lastZoomAt > 450) {   // aktif zoom sırasında fırlatma yok
       const c = held, dir = Math.sign(hvx);
@@ -1387,10 +1388,10 @@ function onResults(res) {
     // 🖐️➡️ SAVURMA: açık el hızla süpürülünce — normalde bulut dağılması,
     // YÖRÜNGEDEYKEN formasyon değiştirir (halka→sarmal→sonsuzluk→galaksi).
     // İki el birbirine yakınken devre dışı (alkışla karışmasın).
-    if (palm && !(pts.length === 2 && twoDist !== null && twoDist < 320)) {
+    if (palm && !(pts.length === 2 && twoDist !== null && twoDist < 320 * GS)) {
       if (swipePrev !== null) {
         swipeV = swipeV * 0.6 + (palm.palmX - swipePrev) * 0.4;   // yumuşatılmış yatay hız
-        if (Math.abs(swipeV) > 38 && performance.now() - lastSwipe > 1600
+        if (Math.abs(swipeV) > 38 * GS && performance.now() - lastSwipe > 1600
             && performance.now() - releaseAt > 600) {
           lastSwipe = performance.now();
           const dir2 = Math.sign(palm.palmX - swipePrev) || 1;
