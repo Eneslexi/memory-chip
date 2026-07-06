@@ -1129,6 +1129,7 @@ let twoDist = null, clapV = 0, lastClap = 0;       // 👏 alkış algılama
 let aimed = null;                                  // 🎯 parmağın altındaki kart (nişan)
 let heldAt = 0, heldPrevX = null, heldPrevY = null; // ↔️ fırlatma algılama
 let openStreak = 0, heldPrevD = null;               // bırakma: avuç HAREKETSİZ açık olmalı (zoom'da kaçmasın)
+let heldD0 = 0, lastZoomAt = 0;                     // zoom sıfır noktası (tutma anı) + son aktif zoom zamanı
 
 function airPress(el) { // havadan buton basma: görsel bastırma + klik
   el.classList.remove('press'); void el.offsetWidth; el.classList.add('press');
@@ -1160,7 +1161,8 @@ function onResults(res) {
     const y = ((th.y + ix.y) / 2) * innerHeight;
     const palmX = (1 - lm[9].x) * innerWidth;
     const palmY = lm[9].y * innerHeight;
-    pts.push({ x, y, pinch: pinchState[hi], pinchNew: pinchState[hi] && !wasPinch, open, palmX, palmY, d });
+    const span = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y) || 0.001; // avuç boyu: uzaklık normalizasyonu
+    pts.push({ x, y, pinch: pinchState[hi], pinchNew: pinchState[hi] && !wasPinch, open, palmX, palmY, d, span });
     const dot = dots[hi];
     dot.style.display = 'block';
     dot.style.left = x + 'px'; dot.style.top = y + 'px';
@@ -1197,8 +1199,11 @@ function onResults(res) {
   const hp = holdHand >= 0 && holdHand < pts.length ? pts[holdHand] : null;
   if (held) openStreak = (hp && hp.open) ? openStreak + 1 : 0;
   if (held && hp) {
-    if (heldPrevD !== null && Math.abs(hp.d - heldPrevD) > 0.005) openStreak = 0; // aktif zoom
-    heldPrevD = hp.d;
+    const dRel = hp.d / hp.span;   // el boyutuna oranlı: kameraya yakınlık/uzaklık etkilemez
+    if (heldPrevD !== null && Math.abs(dRel - heldPrevD) > 0.02) {
+      openStreak = 0; lastZoomAt = performance.now();   // aktif zoom: bırakma VE fırlatma kilitli
+    }
+    heldPrevD = dRel;
   }
   if (held && (!hp || openStreak > 18)) {
     spark(held.x + held.w / 2, held.y + held.h / 2, 16, 5);
@@ -1242,6 +1247,7 @@ function onResults(res) {
           c.el.classList.remove('aim'); if (aimed === c) aimed = null;
           c.el.style.opacity = ''; c.el.style.zIndex = '';    // yörünge kalıntısı temizle
           heldAt = performance.now(); heldPrevX = heldPrevY = null; heldPrevD = null; openStreak = 0;
+          heldD0 = pts[hi].d / pts[hi].span;   // zoom sıfır noktası: TUTMA anındaki parmak aralığı
           spark(pts[hi].x, pts[hi].y, 12, 4);
           c.trot = 0;
           cards.splice(cards.indexOf(c), 1); cards.push(c);
@@ -1258,7 +1264,9 @@ function onResults(res) {
     const hvx = heldPrevX === null ? 0 : p.x - heldPrevX;
     const hvy = heldPrevY === null ? 0 : p.y - heldPrevY;
     heldPrevX = p.x; heldPrevY = p.y;
-    if (Math.abs(hvx) > 55 && performance.now() - heldAt > 350) {
+    if (Math.abs(hvx) > 62 && Math.abs(hvx) > Math.abs(hvy) * 1.6
+        && performance.now() - heldAt > 350
+        && performance.now() - lastZoomAt > 450) {   // aktif zoom sırasında fırlatma yok
       const c = held, dir = Math.sign(hvx);
       c.vx = hvx * 1.25; c.vy = hvy * 0.8;        // itiş hızıyla uçar, duvardan seker
       c.tw = c.baseW; c.th = c.baseH;
@@ -1272,11 +1280,12 @@ function onResults(res) {
     } else {
       held.tx = p.x - held.w / 2; held.ty = p.y - held.h / 2;
       spark(p.x, p.y, 1, 2.5);
-      // KONTROLLÜ ZOOM: tutunca ılımlı büyür (~%16), parmak arası AÇILDIKÇA %80'e dek —
-      // büyüme ele senkron ve GÖRÜNÜR: izleyen "elleriyle büyütüyor" diye net anlar
+      // KONTROLLÜ ZOOM: tutma anındaki parmak aralığı SIFIR noktası; oradan açtıkça %80'e dek.
+      // Mesafe avuç boyuna oranlı — elin kameraya yakın/uzak olması zoom'u bozmaz.
       const ratio = held.baseH / held.baseW;
-      const sN = Math.min(1, Math.max(0, (p.d - 0.055) / 0.15));  // 0=kapalı … 1=tam açık
-      const gMin = Math.max(held.baseW * 1.4, innerWidth * 0.16);
+      const dRel = p.d / p.span;
+      const sN = Math.min(1, Math.max(0, (dRel - heldD0 - 0.15) / 0.9)); // 0=tuttuğun gibi … 1=tam açık
+      const gMin = Math.max(held.baseW * 1.3, innerWidth * 0.13);
       const gMax = Math.min(innerWidth * 0.8, (innerHeight * 0.74) / ratio);
       const gw = gMin + (gMax - gMin) * Math.pow(sN, 1.25);
       held.tw = gw; held.th = gw * ratio;
