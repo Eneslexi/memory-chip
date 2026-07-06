@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AirBeams — Laser Strings</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000;
+               font-family: 'SF Mono', Menlo, 'Cascadia Code', monospace; touch-action: none; }
+  #cam { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover;
+         transform: scaleX(-1); filter: brightness(.9) saturate(1.05) contrast(1.04); }
+  #fx  { position: fixed; inset: 0; z-index: 5; }
+  /* teknik HUD — referans videodaki gibi köşede canlı panel */
+  #hud { position: fixed; top: 16px; left: 16px; z-index: 10;
+         background: rgba(6, 10, 16, .58); border: 1px solid rgba(110, 255, 210, .35);
+         border-radius: 10px; padding: 10px 16px; backdrop-filter: blur(6px);
+         color: #b8ffe4; font-size: 12px; line-height: 1.85; letter-spacing: .6px;
+         box-shadow: 0 0 18px rgba(60, 255, 200, .12); }
+  #hud b { color: #7dffd0; font-weight: 700; }
+  #hud .gest { color: #ffe066; font-weight: 700; }
+  #startOverlay { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 4, .92);
+                  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+  #startOverlay h1 { color: #d8fff0; font-size: clamp(20px, 4vw, 34px); font-weight: 700;
+                     letter-spacing: 10px; margin: 0; text-shadow: 0 0 30px rgba(90, 255, 210, .6); }
+  #startOverlay p { color: rgba(216, 255, 240, .55); font-size: 12px; letter-spacing: 3px; margin: 0; }
+  #startBtn { font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: 4px;
+              color: #01110b; background: #6effd2; border: 0; border-radius: 999px;
+              padding: 16px 48px; cursor: pointer;
+              box-shadow: 0 0 34px rgba(110, 255, 210, .7), 0 0 110px rgba(110, 255, 210, .25); }
+</style>
+</head>
+<body>
+<video id="cam" autoplay playsinline muted></video>
+<canvas id="fx"></canvas>
+<div id="hud">
+  Hands Detected: <b id="hHands">0</b><br>
+  FPS: <b id="hFps">—</b><br>
+  Gesture: <span class="gest" id="hGest">—</span><br>
+  Spread: <b id="hSpread">—</b>
+</div>
+<div id="startOverlay"><h1>AIRBEAMS</h1><p>LASER STRINGS BETWEEN YOUR HANDS</p><button id="startBtn">START</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script>
+const cv = document.getElementById('fx'), ctx = cv.getContext('2d');
+function resize() { cv.width = innerWidth; cv.height = innerHeight; }
+addEventListener('resize', resize); resize();
+
+const IS_MOBILE = Math.min(innerWidth, innerHeight) < 640;
+const TIPS = [4, 8, 12, 16, 20];
+const HAND_CONN = [
+  [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]
+];
+
+// ---- el titreme filtresi: uyarlanabilir EMA (duruşta sabit, hızlıda çevik) ----
+let smoothHands = [];
+function smoothLandmarks(raw) {
+  const out = [], used = new Set();
+  for (const lm of raw) {
+    let best = null, bd = 0.25;
+    smoothHands.forEach((sh, i) => {
+      if (used.has(i)) return;
+      const d = Math.hypot(sh[0].x - lm[0].x, sh[0].y - lm[0].y);
+      if (d < bd) { bd = d; best = i; }
+    });
+    if (best === null) out.push(lm.map(p => ({ x: p.x, y: p.y })));
+    else {
+      used.add(best);
+      const prev = smoothHands[best];
+      out.push(lm.map((p, j) => {
+        const q = prev[j];
+        const d = Math.hypot(p.x - q.x, p.y - q.y);
+        const a = Math.min(0.8, 0.12 + d * 26);
+        return { x: q.x + (p.x - q.x) * a, y: q.y + (p.y - q.y) * a };
+      }));
+    }
+  }
+  smoothHands = out;
+  return out;
+}
+
+// ---- jest durumu ----
+let hands = [];          // [{lm, px(i), py(i), pinch, open, fist, span, pinchPt}]
+const pinchOn = [false, false];
+function ext(lm, tip, pip) {
+  const w = lm[0];
+  return Math.hypot(lm[tip].x - w.x, lm[tip].y - w.y) >
+         Math.hypot(lm[pip].x - w.x, lm[pip].y - w.y) * 1.12;
+}
+function onResults(res) {
+  const raw = (res.multiHandLandmarks || []).slice(0, 2);
+  const sm = smoothLandmarks(raw);
+  hands = sm.map((lm, hi) => {
+    const span = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y) || 0.001;
+    const dRel = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y) / span;
+    if (!pinchOn[hi] && dRel < 0.42) pinchOn[hi] = true;   // histerezis
+    if ( pinchOn[hi] && dRel > 0.62) pinchOn[hi] = false;
+    const open = !pinchOn[hi] && ext(lm,8,6) && ext(lm,12,10) && ext(lm,16,14) && ext(lm,20,18);
+    const fist = !open && !ext(lm,8,6) && !ext(lm,12,10) && !ext(lm,16,14) && !ext(lm,20,18);
+    const px = i => (1 - lm[i].x) * innerWidth;
+    const py = i => lm[i].y * innerHeight;
+    return { lm, px, py, pinch: pinchOn[hi], open, fist, span,
+             pinchPt: { x: ((1 - lm[4].x) + (1 - lm[8].x)) / 2 * innerWidth,
+                        y: (lm[4].y + lm[8].y) / 2 * innerHeight } };
+  });
+}
+
+// ---- kıvılcımlar ----
+let sparks = [];
+function spawnSpark(x, y, hue) {
+  sparks.push({ x, y, vx: (Math.random() - .5) * 2.2, vy: (Math.random() - .5) * 2.2 - .4,
+                life: 1, hue });
+}
+
+// ---- dönen tel-kafes ELMAS (pinch noktasında) ----
+const GEM_V = [[0,-1.45,0],[0,1.45,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]];
+const GEM_E = [[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[4,3],[3,5],[5,2]];
+function drawGem(x, y, s, t) {
+  const a = t * 1.4;
+  const pts = GEM_V.map(([vx, vy, vz]) => {
+    const rx = vx * Math.cos(a) - vz * Math.sin(a);
+    const rz = vx * Math.sin(a) + vz * Math.cos(a);
+    return { x: x + rx * s, y: y + vy * s, z: rz };
+  });
+  ctx.lineWidth = 2;
+  for (const [i, j] of GEM_E) {
+    const depth = (pts[i].z + pts[j].z) / 2;
+    ctx.strokeStyle = `hsla(${180 + depth * 60 + t * 40}, 100%, 72%, ${0.55 + depth * 0.2})`;
+    ctx.shadowColor = '#8dfcff'; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  if (Math.random() < .5) spawnSpark(x + (Math.random() - .5) * s * 2, y + (Math.random() - .5) * s * 2, 185);
+}
+
+// ---- lazer ip: iki nokta arası, gökkuşağı + parlak çekirdek + kıvılcım ----
+function beam(x1, y1, x2, y2, hue, t) {
+  const g = ctx.createLinearGradient(x1, y1, x2, y2);
+  g.addColorStop(0, `hsla(${hue}, 100%, 65%, .9)`);
+  g.addColorStop(1, `hsla(${hue + 70}, 100%, 65%, .9)`);
+  ctx.strokeStyle = g;
+  ctx.lineWidth = 2.6;
+  ctx.shadowColor = `hsl(${hue + 35}, 100%, 60%)`; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,.85)';    // parlak çekirdek
+  ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  if (Math.random() < (IS_MOBILE ? .25 : .6)) {
+    const k = Math.random();
+    spawnSpark(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k, hue + Math.random() * 60);
+  }
+}
+
+// ---- neon el iskeleti: gökkuşağı tel-kafes ----
+function drawHand(h, t, baseHue) {
+  ctx.lineWidth = 2.4;
+  HAND_CONN.forEach(([a, b], i) => {
+    const hue = (baseHue + i * 9 + t * 30) % 360;
+    ctx.strokeStyle = `hsla(${hue}, 100%, 66%, .85)`;
+    ctx.shadowColor = `hsl(${hue}, 100%, 60%)`; ctx.shadowBlur = IS_MOBILE ? 0 : 10;
+    ctx.beginPath(); ctx.moveTo(h.px(a), h.py(a)); ctx.lineTo(h.px(b), h.py(b)); ctx.stroke();
+  });
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,.95)';
+  for (let i = 0; i < 21; i++) {
+    ctx.beginPath(); ctx.arc(h.px(i), h.py(i), TIPS.includes(i) ? 4 : 2.6, 0, 7); ctx.fill();
+  }
+}
+
+// ---- HUD ----
+const $ = id => document.getElementById(id);
+let fpsCnt = 0, fpsT = performance.now(), fpsVal = 0;
+function hud(spreadPct, gesture) {
+  $('hHands').textContent = hands.length;
+  $('hFps').textContent = fpsVal || '—';
+  $('hGest').textContent = gesture;
+  $('hSpread').textContent = spreadPct === null ? '—' : spreadPct + '%';
+}
+
+// ---- ana döngü ----
+function loop(now) {
+  const t = now / 1000;
+  fpsCnt++;
+  if (now - fpsT > 1000) { fpsVal = fpsCnt; fpsCnt = 0; fpsT = now; }
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.globalCompositeOperation = 'lighter';   // additive: ışıklar üst üste PARLAR
+
+  hands.forEach((h, i) => drawHand(h, t, i ? 200 : 20));
+
+  let spreadPct = null, gesture = '—';
+  if (hands.length === 2) {
+    const [A, B] = hands;
+    spreadPct = Math.round(Math.hypot(A.px(9) - B.px(9), A.py(9) - B.py(9)) / innerWidth * 100);
+    const pincher = A.pinch ? A : B.pinch ? B : null;
+    if (pincher) {
+      gesture = 'PINCH';
+      const other = pincher === A ? B : A;
+      const g = pincher.pinchPt;
+      drawGem(g.x, g.y, 26 + spreadPct * 0.45, t);          // elmas, açıldıkça büyür
+      TIPS.forEach((tp, i2) => beam(g.x, g.y, other.px(tp), other.py(tp), (t * 60 + i2 * 36) % 360, t));
+    } else {
+      gesture = (A.fist || B.fist) ? 'FIST' : 'OPEN HANDS';
+      TIPS.forEach((tp, i2) =>                               // parmak uçları arası 5 ip
+        beam(A.px(tp), A.py(tp), B.px(tp), B.py(tp), (t * 60 + i2 * 36) % 360, t));
+    }
+  } else if (hands.length === 1) {
+    const h = hands[0];
+    gesture = h.pinch ? 'PINCH' : h.fist ? 'FIST' : h.open ? 'OPEN HAND' : '—';
+    if (h.pinch) drawGem(h.pinchPt.x, h.pinchPt.y, 34, t);
+    TIPS.forEach(tp => { if (Math.random() < .35) spawnSpark(h.px(tp), h.py(tp), (t * 90) % 360); });
+  }
+
+  // kıvılcımlar
+  sparks = sparks.filter(s => s.life > 0);
+  if (sparks.length > 240) sparks.splice(0, sparks.length - 240);
+  for (const s of sparks) {
+    s.x += s.vx; s.y += s.vy; s.vy += 0.02; s.life -= 0.025;
+    ctx.globalAlpha = s.life;
+    ctx.fillStyle = `hsl(${s.hue}, 100%, 72%)`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 1.2 + s.life * 1.6, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  hud(spreadPct, gesture);
+  requestAnimationFrame(loop);
+}
+
+// ---- başlat ----
+document.getElementById('startBtn').addEventListener('click', async () => {
+  document.getElementById('startOverlay').remove();
+  const video = document.getElementById('cam');
+  const mp = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  mp.setOptions({ maxNumHands: 2, modelComplexity: 0,
+                  minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+  mp.onResults(onResults);
+  new Camera(video, {
+    onFrame: async () => await mp.send({ image: video }),
+    width: IS_MOBILE ? 640 : 960, height: IS_MOBILE ? 360 : 540, facingMode: 'user'
+  }).start();
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>
