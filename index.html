@@ -723,8 +723,8 @@ function collageTargets() { // KOLAJ (referans reel): fotoğraflar yüzün ETRAF
   cards.forEach((c, i) => {
     const ring = i % 2;                               // iç halka yoğun, dış halka geniş
     const a = (i / n) * Math.PI * 2 + ring * 0.4 + (Math.random() - .5) * 0.3;
-    const rx = clearX + (ring ? innerWidth  * 0.16 : innerWidth  * 0.05) + Math.random() * innerWidth  * 0.05;
-    const ry = clearY + (ring ? innerHeight * 0.17 : innerHeight * 0.05) + Math.random() * innerHeight * 0.06;
+    const rx = clearX + (ring ? innerWidth  * 0.22 : innerWidth  * 0.07) + Math.random() * innerWidth  * 0.07;
+    const ry = clearY + (ring ? innerHeight * 0.22 : innerHeight * 0.07) + Math.random() * innerHeight * 0.08;
     c.tx = Math.max(8, Math.min(innerWidth  - c.baseW - 8,  cx + Math.cos(a) * rx - c.baseW / 2));
     c.ty = Math.max(76, Math.min(innerHeight - c.baseH - 76, cy + Math.sin(a) * ry - c.baseH / 2));
     c.trot = (Math.random() - .5) * 18;
@@ -1068,9 +1068,9 @@ function loop(tNow) {
     c.w += (c.tw - c.w) * 0.14 * dt;
     c.h += (c.th - c.h) * 0.14 * dt;
     c.rot += (c.trot - c.rot) * 0.12 * dt;
-    const bob = c === held ? 0 : Math.sin(t * c.bobS + c.bobA) * (REEL ? 5 : 1.1); // süzülme (reel: belirgin)
-    const bobX = (c === held || !REEL) ? 0 : Math.cos(t * c.bobS * .85 + c.bobA) * 4;
-    const rot = c.rot + (c === held ? 0 : Math.sin(t * c.bobS * .8 + c.bobA) * (REEL ? 1.6 : 0.4));
+    const bob = c === held ? 0 : Math.sin(t * c.bobS + c.bobA) * (REEL ? 11 : 1.1); // süzülme (reel: belirgin)
+    const bobX = (c === held || !REEL) ? 0 : Math.cos(t * c.bobS * .85 + c.bobA) * 9;
+    const rot = c.rot + (c === held ? 0 : Math.sin(t * c.bobS * .8 + c.bobA) * (REEL ? 2.2 : 0.4));
     // organik paralaks: kart kendi hızıyla hedefe süzülür (dalga hissi);
     // ölçek derinlikle nefes alır → "arkaya gidip geliyor". Sınırlı, taşma yok.
     let px2 = 0, py2 = 0, ps = 1;
@@ -1086,8 +1086,8 @@ function loop(tNow) {
     let r3d = '', scW = 1;
     if (REEL && c !== held) {
       const ph = c.bobA + c.tx * 0.0016 + c.ty * 0.0011;
-      scW = 1 + Math.sin(t * 0.55 + ph) * 0.11;
-      r3d = ` rotateY(${(Math.sin(t * 0.42 + ph) * 10).toFixed(2)}deg) rotateX(${(Math.cos(t * 0.36 + ph) * 6).toFixed(2)}deg)`;
+      scW = 1 + Math.sin(t * 0.5 + ph) * 0.15;
+      r3d = ` rotateY(${(Math.sin(t * 0.42 + ph) * 13).toFixed(2)}deg) rotateX(${(Math.cos(t * 0.36 + ph) * 8).toFixed(2)}deg)`;
     }
     // PERFORMANS: boyut değişimi layout tetikleyen width/padding yerine GPU'daki scale ile
     const sc = (c.w / c.baseW) * ps * scW;
