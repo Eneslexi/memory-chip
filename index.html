@@ -226,6 +226,9 @@
     backdrop-filter: none; box-shadow: none; }               /* blur yok: performans; tıklanamaz */
   body.reel.holding .slot { opacity: .5; }
   body.reel.holding .slot.hot { opacity: 1; }
+  /* referans reel görünümü: PORTRE kartlar, etiket yok — saf polaroid/sanat baskısı */
+  body.reel .card .lbl { display: none; }
+  body.reel .card img { aspect-ratio: 4/5; }
   body { perspective: 1200px; }  /* 3D yörünge modu için derinlik */
   .card.aim { /* nişan: parmağın altındaki fotoğraf işaretlenir */
     box-shadow: 0 0 0 2px rgba(165,243,252,.95), 0 0 26px rgba(103,232,249,.6),
@@ -659,28 +662,32 @@ function absorb(card, slot) { // fotoğraf küçülerek yuvaya emilir
 
 // ================= KARTLAR =================
 function makeCard(ph, i) { // ph: {src, name, rec?} — rec = DB kaydı (kullanıcı fotoğrafı)
-  const w = (88 + Math.random() * 58) * S;
+  // REEL: referans gibi — dev portreden mini uyduya GENİŞ boyut yelpazesi (derinlik hissi)
+  const w = (REEL ? 76 + Math.random() * 118 : 88 + Math.random() * 58) * S;
+  const HF = REEL ? 1.22 : 1.06;                       // portre oran (etiketsiz) / klasik kart
+  const dNorm = REEL ? (w / S - 76) / 118 : (w / S - 88) / 58;  // 0=en küçük … 1=en büyük
   const el = document.createElement('div');
   el.className = 'card';
   el.innerHTML = `<img src="${ph.src}" draggable="false"><div class="lbl">${ph.name}</div>`;
   // boyutlar BİR KEZ ayarlanır; animasyon transform:scale ile (layout thrash yok)
   el.style.width = w + 'px';
-  el.style.padding = `${w * 0.05}px ${w * 0.05}px 0px`;
+  el.style.padding = REEL ? `${w * 0.055}px` : `${w * 0.05}px ${w * 0.05}px 0px`;
   const nm = (ph.name || ' ');
   el.querySelector('.lbl').style.fontSize =
     Math.max(9, Math.min(w * 0.16, (w * 2.0) / nm.length)) + 'px';
   document.body.appendChild(el);
   const c = {
-    el, w, h: w * 1.06, tw: w, th: w * 1.06, baseW: w, baseH: w * 1.06,
+    el, w, h: w * HF, tw: w, th: w * HF, baseW: w, baseH: w * HF,
     name: ph.name || ' ', rec: ph.rec || null,
-    x: innerWidth / 2 - w / 2, y: innerHeight / 2 - w * 0.53,
+    x: innerWidth / 2 - w / 2, y: innerHeight / 2 - w * HF / 2,
     tx: 0, ty: 0, vx: 0, vy: 0, pull: 0.02,
-    depth: (w / S - 88) / 58,
+    depth: dNorm,
     // organik akış: her kartın kendi takip hızı ve genliği (yakın=çevik, uzak=süzülür)
+    // REEL: paralaks daha güçlü — sahne elle birlikte AKAR (referans senkron hissi)
     pX: 0, pY: 0,
-    pK: 0.035 + ((w / S - 88) / 58) * 0.095,
-    ampX: 48 + ((w / S - 88) / 58) * 165,
-    ampY: 34 + ((w / S - 88) / 58) * 118,
+    pK: (REEL ? 0.05 : 0.035) + dNorm * (REEL ? 0.13 : 0.095),
+    ampX: (REEL ? 70 : 48) + dNorm * (REEL ? 230 : 165),
+    ampY: (REEL ? 50 : 34) + dNorm * (REEL ? 170 : 118),
     rot: (Math.random() - .5) * 8, trot: (Math.random() - .5) * 8,   // hafif eğim (dağınık moodboard değil, araç)
     bobA: Math.random() * Math.PI * 2, bobS: 0.25 + Math.random() * 0.5
   };
@@ -953,6 +960,9 @@ function loop(tNow) {
 
   if (REEL) document.body.classList.toggle('holding', !!held); // hayalet yuvalar: elde kart varken görünür
 
+  // 🌊 İTME ALANI (yalnız reel): el yaklaşınca kartlar yumuşakça YOL VERİR — elle senkron his
+  const REPEL_R = 250;
+
   // yuva vurgusu: tutulan kart yuvada KISA SÜRE beklerse emilir (üzerinden geçerken yutmaz)
   let hotSlot = null;
   if (held) {
@@ -1010,6 +1020,14 @@ function loop(tNow) {
         `translate(${c.x}px,${c.y}px) rotateY(${ry}deg) rotate(${Math.sin(t * .5 + c.bobA) * 3}deg) scale(${oS})`;
       continue;
     } else {
+      if (REEL && handOn) {   // 🌊 itme alanı: ele yaklaşan kart yumuşakça uzaklaşır
+        const rdx = c.x + c.w / 2 - handFX, rdy = c.y + c.h / 2 - handFY;
+        const rd = Math.hypot(rdx, rdy);
+        if (rd < REPEL_R && rd > 0.5) {
+          const rf = (1 - rd / REPEL_R) * 2.3 * dt;
+          c.vx += (rdx / rd) * rf; c.vy += (rdy / rd) * rf;
+        }
+      }
       c.x += c.vx * dt; c.y += c.vy * dt;
       c.vx *= Math.pow(DAMP, dt); c.vy *= Math.pow(DAMP, dt);
       c.pull += (0.02 - c.pull) * 0.012 * dt;
@@ -1137,6 +1155,7 @@ let aimed = null;                                  // 🎯 parmağın altındaki
 let heldAt = 0, heldPrevX = null, heldPrevY = null; // ↔️ fırlatma algılama
 let openStreak = 0, heldPrevD = null;               // bırakma: avuç HAREKETSİZ açık olmalı (zoom'da kaçmasın)
 let heldD0 = 0, lastZoomAt = 0;                     // zoom sıfır noktası (tutma anı) + son aktif zoom zamanı
+let handFX = 0, handFY = 0, handOn = false;         // 🌊 itme alanı: el konumu (kartlar yol verir)
 
 function airPress(el) { // havadan buton basma: görsel bastırma + klik
   el.classList.remove('press'); void el.offsetWidth; el.classList.add('press');
@@ -1248,6 +1267,10 @@ function onResults(res) {
     held.el.classList.remove('held'); held = null; holdHand = -1;
     releaseAt = performance.now();      // bırakır bırakmaz avuç kaydırmayı tetiklemesin
   }
+  // 🌊 itme alanı için el konumu (ilk elin avuç merkezi)
+  handOn = pts.length > 0 && !held;
+  if (handOn) { handFX = pts[0].palmX; handFY = pts[0].palmY; }
+
   // 👏 ALKIŞ: iki el hızla birleşince 3D yörünge modu aç/kapa
   if (pts.length === 2) {
     const dd = Math.hypot(pts[0].palmX - pts[1].palmX, pts[0].palmY - pts[1].palmY);
