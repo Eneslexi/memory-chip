@@ -662,10 +662,10 @@ function absorb(card, slot) { // fotoğraf küçülerek yuvaya emilir
 
 // ================= KARTLAR =================
 function makeCard(ph, i) { // ph: {src, name, rec?} — rec = DB kaydı (kullanıcı fotoğrafı)
-  // REEL: referans gibi — orta boy portreler + mini uydular (ekranı boğmayan yelpaze)
-  const w = (REEL ? 60 + Math.random() * 92 : 88 + Math.random() * 58) * S;
+  // REEL: referans gibi — TEK TİP boyut (hepsi eşit polaroid)
+  const w = (REEL ? 96 : 88 + Math.random() * 58) * S;
   const HF = REEL ? 1.22 : 1.06;                       // portre oran (etiketsiz) / klasik kart
-  const dNorm = REEL ? (w / S - 60) / 92 : (w / S - 88) / 58;  // 0=en küçük … 1=en büyük
+  const dNorm = REEL ? Math.random() : (w / S - 88) / 58;  // reel: derinlik katmanı rastgele (hareket çeşitliliği)
   const el = document.createElement('div');
   el.className = 'card';
   el.innerHTML = `<img src="${ph.src}" draggable="false"><div class="lbl">${ph.name}</div>`;
@@ -839,11 +839,16 @@ async function spawnCards() {
   cards.length = 0;
   // duvar = henüz albüme KONMAMIŞ kullanıcı fotoğrafları; hiç yoksa demo seti
   const userPh = (await DB.all('photos'));
-  const unfiled = userPh.filter(p => !p.album);
-  let list = unfiled.length
-    ? unfiled.map(p => ({ src: p.data, name: p.name, rec: p }))
-    : [...PHOTOS].map(p => ({ src: p.file, name: p.name }));
-  list = list.sort(() => Math.random() - .5).slice(0, MAX_WALL);
+  const unfiled = userPh.filter(p => !p.album).map(p => ({ src: p.data, name: p.name, rec: p }));
+  const demo = [...PHOTOS].map(p => ({ src: p.file, name: p.name, pin: p.file.startsWith('photos_ai') }));
+  let list;
+  if (REEL) {  // reel: kullanıcının AI görselleri + yüklemeleri GARANTİ duvarda, kalan rastgele
+    const pinned = [...unfiled, ...demo.filter(p => p.pin)];
+    const rest = demo.filter(p => !p.pin).sort(() => Math.random() - .5);
+    list = [...pinned, ...rest].slice(0, MAX_WALL).sort(() => Math.random() - .5);
+  } else {
+    list = (unfiled.length ? unfiled : demo).sort(() => Math.random() - .5).slice(0, MAX_WALL);
+  }
   list.forEach(makeCard);
   layoutMode = 0; collageTargets();   // varsayılan: KOLAJ — fotoğraflar yüzün etrafında (referans reel); 🖐️⬆ ile dağıt
   cards.forEach(c => { c.pull = 0.06; });
