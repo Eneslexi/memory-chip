@@ -662,10 +662,10 @@ function absorb(card, slot) { // fotoğraf küçülerek yuvaya emilir
 
 // ================= KARTLAR =================
 function makeCard(ph, i) { // ph: {src, name, rec?} — rec = DB kaydı (kullanıcı fotoğrafı)
-  // REEL: referans gibi — dev portreden mini uyduya GENİŞ boyut yelpazesi (derinlik hissi)
-  const w = (REEL ? 76 + Math.random() * 118 : 88 + Math.random() * 58) * S;
+  // REEL: referans gibi — orta boy portreler + mini uydular (ekranı boğmayan yelpaze)
+  const w = (REEL ? 60 + Math.random() * 92 : 88 + Math.random() * 58) * S;
   const HF = REEL ? 1.22 : 1.06;                       // portre oran (etiketsiz) / klasik kart
-  const dNorm = REEL ? (w / S - 76) / 118 : (w / S - 88) / 58;  // 0=en küçük … 1=en büyük
+  const dNorm = REEL ? (w / S - 60) / 92 : (w / S - 88) / 58;  // 0=en küçük … 1=en büyük
   const el = document.createElement('div');
   el.className = 'card';
   el.innerHTML = `<img src="${ph.src}" draggable="false"><div class="lbl">${ph.name}</div>`;
@@ -1063,8 +1063,9 @@ function loop(tNow) {
     c.w += (c.tw - c.w) * 0.14 * dt;
     c.h += (c.th - c.h) * 0.14 * dt;
     c.rot += (c.trot - c.rot) * 0.12 * dt;
-    const bob = c === held ? 0 : Math.sin(t * c.bobS + c.bobA) * 1.1;   // sakin süzülme
-    const rot = c.rot + (c === held ? 0 : Math.sin(t * c.bobS * .8 + c.bobA) * 0.4);
+    const bob = c === held ? 0 : Math.sin(t * c.bobS + c.bobA) * (REEL ? 5 : 1.1); // süzülme (reel: belirgin)
+    const bobX = (c === held || !REEL) ? 0 : Math.cos(t * c.bobS * .85 + c.bobA) * 4;
+    const rot = c.rot + (c === held ? 0 : Math.sin(t * c.bobS * .8 + c.bobA) * (REEL ? 1.6 : 0.4));
     // organik paralaks: kart kendi hızıyla hedefe süzülür (dalga hissi);
     // ölçek derinlikle nefes alır → "arkaya gidip geliyor". Sınırlı, taşma yok.
     let px2 = 0, py2 = 0, ps = 1;
@@ -1075,10 +1076,18 @@ function loop(tNow) {
       const mag = Math.hypot(c.pX / c.ampX, c.pY / c.ampY);
       ps = 1 + mag * (c.depth - 0.45) * 0.16;
     }
+    // 🌌 UZAY DALGASI (reel): konuma bağlı fazla 3D salınım — dalga alanın içinden geçer;
+    // kartlar öne-arkaya nefes alır (scale) ve hafifçe yalpalanır (rotateY/X, gerçek perspektif)
+    let r3d = '', scW = 1;
+    if (REEL && c !== held) {
+      const ph = c.bobA + c.tx * 0.0016 + c.ty * 0.0011;
+      scW = 1 + Math.sin(t * 0.55 + ph) * 0.11;
+      r3d = ` rotateY(${(Math.sin(t * 0.42 + ph) * 10).toFixed(2)}deg) rotateX(${(Math.cos(t * 0.36 + ph) * 6).toFixed(2)}deg)`;
+    }
     // PERFORMANS: boyut değişimi layout tetikleyen width/padding yerine GPU'daki scale ile
-    const sc = (c.w / c.baseW) * ps;
+    const sc = (c.w / c.baseW) * ps * scW;
     c.el.style.transform =
-      `translate(${c.x + px2 + (c.w - c.baseW) / 2}px,${c.y + py2 + bob + (c.h - c.baseH) / 2}px) rotate(${rot}deg) scale(${sc})`;
+      `translate(${c.x + px2 + bobX + (c.w - c.baseW) / 2}px,${c.y + py2 + bob + (c.h - c.baseH) / 2}px)${r3d} rotate(${rot}deg) scale(${sc})`;
   }
 
   ambientDust(dt);
