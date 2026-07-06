@@ -1160,8 +1160,9 @@ function onResults(res) {
   });
 
   // --- HAVADAN BASMA: imleç buton/yuva üstündeyse vurgulanır, kıstırınca basılır ---
+  // (REEL modunda kapalı: yuvalar sadece BIRAKMA hedefi — yanlışlıkla albüm açılıp akış bozulmasın)
   let uiHit = null;
-  if (!held) {
+  if (!held && !REEL) {
     for (const p of pts) {
       const el = document.elementFromPoint(p.x, p.y);
       const ui = el && el.closest ? el.closest('.chip, .slot') : null;
