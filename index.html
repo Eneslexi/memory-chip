@@ -212,9 +212,14 @@
   .dot.pinch { width: 14px; height: 14px; background: rgba(255,214,240,.95); box-shadow: 0 0 26px #ffd6f0; }
   .dot.palm  { width: 40px; height: 40px; border-style: dashed; background: transparent; }
 
-  /* ---- REEL çekim modu (?reel): temiz sahne — sadece kamera + kartlar ---- */
+  /* ---- REEL çekim modu (?reel): temiz sahne — kamera + kartlar + el iskeleti ---- */
   body.reel .chip, body.reel .slot, body.reel .hud, body.reel .dot { display: none !important; }
-  body.reel #hand, body.reel #scan { display: none; }
+  body.reel #scan { display: none; }
+  body { perspective: 1200px; }  /* 3D yörünge modu için derinlik */
+  .card.aim { /* nişan: parmağın altındaki fotoğraf işaretlenir */
+    box-shadow: 0 0 0 2px rgba(165,243,252,.95), 0 0 26px rgba(103,232,249,.6),
+                0 10px 34px rgba(0,0,0,.55);
+  }
 
   /* ---- albüm adı modalı (prompt() sayfayı donduruyordu; kendi penceremiz akıcı) ---- */
   #albumModal { position: fixed; inset: 0; z-index: 170; display: none;
@@ -331,7 +336,7 @@
     </g>
   </svg>
 </div>
-<div class="chip" id="chipGest">👌 Pinch = Grab · 🤏↔️ Spread = Zoom · 🖐️ Open = Drop · 🖐️➡️ Swipe = Scatter · 🖐️⬆ Arrange</div>
+<div class="chip" id="chipGest">👌 Pinch = Grab · 🤏↔️ Spread = Zoom · 🖐️ Open = Drop · 🖐️➡️ Swipe = Scatter · 👏 Clap = 3D Orbit</div>
 <div class="dot" id="dot0"></div>
 <div class="dot" id="dot1"></div>
 <div id="startOverlay"><h1>AIRCHIP</h1><button id="startBtn">START</button></div>
@@ -698,6 +703,25 @@ function gridTargets() {
   });
 }
 let regatherT = null, waves = [];
+// ===== 👏 3D YÖRÜNGE MODU: alkışla aç/kapa — kartlar uzay boşluğunda ağır ağır döner =====
+let orbitMode = false, orbitA = 0;
+function toggleOrbit(wx, wy) {
+  orbitMode = !orbitMode;
+  clearTimeout(regatherT);                          // bekleyen kolaj toplanması iptal
+  for (let k = 0; k < 3; k++) waves.push({ x: wx, y: wy, r: 12 + k * 24, s: 14 + k * 4, life: 1 });
+  spark(wx, wy, 26, 7);
+  sndShuffle();
+  if (orbitMode) {
+    cards.forEach((c, i) => { c.oi = i; c.tw = c.baseW; c.th = c.baseH; c.pull = 0.02; });
+  } else {                                          // çıkış: kolaja geri topla
+    cards.forEach(c => { c.el.style.opacity = ''; c.el.style.zIndex = ''; });
+    layoutMode = 0; collageTargets();
+    cards.forEach((c, i) => setTimeout(() => {
+      c.pull = 0.14;
+      c.el.classList.remove('warp'); void c.el.offsetWidth; c.el.classList.add('warp');
+    }, i * 16));
+  }
+}
 function swipeScatter(dir, wx, wy) { // 🖐️➡️ SAVURMA: kartlar savurma yönünde küçülüp uçuşur, sonra kolaja döner
   wx = wx ?? innerWidth / 2; wy = wy ?? innerHeight / 2;
   layoutMode = 1;
@@ -897,12 +921,31 @@ function loop(tNow) {
   } else hotSlotCur = null;
   SLOTS.forEach(s => s.el.classList.toggle('hot', s === hotSlot));
 
+  if (orbitMode) orbitA += 0.0042 * dt;   // uzayda ağır dönüş (~25sn/tur)
+
   for (const c of cards) {
     if (c === held) {
       const nx = c.x + (c.tx - c.x) * LERP * dt;
       const ny = c.y + (c.ty - c.y) * LERP * dt;
       c.vx = nx - c.x; c.vy = ny - c.y;
       c.x = nx; c.y = ny;
+    } else if (orbitMode) {
+      // 3D YÖRÜNGE: elips halka; öndekiler büyük/parlak, arkadakiler küçük/soluk
+      const th2 = orbitA + (c.oi / Math.max(1, cards.length)) * Math.PI * 2;
+      const R = Math.min(innerWidth * 0.38, 620);
+      const depth = Math.sin(th2);                            // -1 arka .. +1 ön
+      const ox = innerWidth / 2 + Math.cos(th2) * R - c.baseW / 2;
+      const oy = innerHeight * 0.46 + depth * innerHeight * 0.07 - c.baseH / 2;
+      c.x += (ox - c.x) * 0.09 * dt; c.y += (oy - c.y) * 0.09 * dt;
+      c.vx = 0; c.vy = 0; c.tx = c.x; c.ty = c.y;
+      c.w += (c.tw - c.w) * 0.14 * dt; c.h += (c.th - c.h) * 0.14 * dt;
+      const oS = (0.68 + 0.42 * (depth + 1) / 2) * (c.w / c.baseW);
+      const ry = -Math.cos(th2) * 26;                         // yanlardakiler içe bakar
+      c.el.style.zIndex = 10 + Math.round((depth + 1) * 6);
+      c.el.style.opacity = 0.55 + 0.45 * (depth + 1) / 2;
+      c.el.style.transform =
+        `translate(${c.x}px,${c.y}px) rotateY(${ry}deg) rotate(${Math.sin(t * .5 + c.bobA) * 3}deg) scale(${oS})`;
+      continue;
     } else {
       c.x += c.vx * dt; c.y += c.vy * dt;
       c.vx *= Math.pow(DAMP, dt); c.vy *= Math.pow(DAMP, dt);
@@ -1021,6 +1064,8 @@ const pinchState = [false, false];
 let prevPalm = null;
 let releaseAt = 0;     // son bırakma anı (avuç jestleriyle çakışmayı önler)
 let swipePrev = null, swipeV = 0, lastSwipe = 0;   // 🖐️➡️ savurma algılama
+let twoDist = null, clapV = 0, lastClap = 0;       // 👏 alkış algılama
+let aimed = null;                                  // 🎯 parmağın altındaki kart (nişan)
 
 function airPress(el) { // havadan buton basma: görsel bastırma + klik
   el.classList.remove('press'); void el.offsetWidth; el.classList.add('press');
@@ -1094,13 +1139,38 @@ function onResults(res) {
     held.el.classList.remove('held'); held = null; holdHand = -1;
     releaseAt = performance.now();      // bırakır bırakmaz avuç kaydırmayı tetiklemesin
   }
-  // TUTMA: parmakları kıstır (pinch) — kart yapışır, parmaklar açılınca DÜŞMEZ
+  // 👏 ALKIŞ: iki el hızla birleşince 3D yörünge modu aç/kapa
+  if (pts.length === 2) {
+    const dd = Math.hypot(pts[0].palmX - pts[1].palmX, pts[0].palmY - pts[1].palmY);
+    if (twoDist !== null) {
+      clapV = clapV * 0.5 + (twoDist - dd) * 0.5;             // yaklaşma hızı (yumuşatılmış)
+      if (dd < 150 && clapV > 15 && performance.now() - lastClap > 2000 && !held) {
+        lastClap = performance.now();
+        lastSwipe = performance.now();                         // alkış savurmayı tetiklemesin
+        clapV = 0;
+        toggleOrbit((pts[0].palmX + pts[1].palmX) / 2, (pts[0].palmY + pts[1].palmY) / 2);
+      }
+    }
+    twoDist = dd;
+  } else { twoDist = null; clapV = 0; }
+
+  // 🎯 NİŞAN: parmağın altındaki kart işaretlenir — neyi tutacağın belli olur
+  const tgt = (!held && pts.length) ? cardAt(pts[0].x, pts[0].y) : null;
+  if (aimed !== tgt) {
+    if (aimed) aimed.el.classList.remove('aim');
+    aimed = tgt;
+    if (aimed) aimed.el.classList.add('aim');
+  }
+
+  // TUTMA: sadece KISTIRMA ANINDA (pinchNew) — el kapalı gezerken yanlışlıkla kapmaz
   if (!held) {
     for (let hi = 0; hi < pts.length; hi++) {
-      if (pts[hi].pinch) {
+      if (pts[hi].pinchNew) {
         const c = cardAt(pts[hi].x, pts[hi].y);
         if (c) {
           held = c; holdHand = hi; c.el.classList.add('held');
+          c.el.classList.remove('aim'); if (aimed === c) aimed = null;
+          c.el.style.opacity = ''; c.el.style.zIndex = '';    // yörünge kalıntısı temizle
           spark(pts[hi].x, pts[hi].y, 12, 4);
           c.trot = 0;
           cards.splice(cards.indexOf(c), 1); cards.push(c);
@@ -1127,7 +1197,8 @@ function onResults(res) {
   } else {
     const palm = pts.find(q => q.open);
     // 🖐️➡️ SAVURMA: açık el hızla sağa/sola süpürülünce kartlar o yöne bulut gibi savrulur
-    if (palm) {
+    // (yörünge modunda ve iki el birbirine yakınken devre dışı — alkışla karışmasın)
+    if (palm && !orbitMode && !(pts.length === 2 && twoDist !== null && twoDist < 320)) {
       if (swipePrev !== null) {
         swipeV = swipeV * 0.6 + (palm.palmX - swipePrev) * 0.4;   // yumuşatılmış yatay hız
         if (Math.abs(swipeV) > 38 && performance.now() - lastSwipe > 1600
