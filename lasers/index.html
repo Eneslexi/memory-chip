@@ -124,11 +124,11 @@ function drawGem(x, y, s, t) {
     const rz = vx * Math.sin(a) + vz * Math.cos(a);
     return { x: x + rx * s, y: y + vy * s, z: rz };
   });
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3.2;
   for (const [i, j] of GEM_E) {
     const depth = (pts[i].z + pts[j].z) / 2;
-    ctx.strokeStyle = `hsla(${180 + depth * 60 + t * 40}, 100%, 72%, ${0.55 + depth * 0.2})`;
-    ctx.shadowColor = '#8dfcff'; ctx.shadowBlur = 16;
+    ctx.strokeStyle = `hsla(${180 + depth * 60 + t * 40}, 100%, 76%, ${0.7 + depth * 0.2})`;
+    ctx.shadowColor = '#8dfcff'; ctx.shadowBlur = 24;
     ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
   }
   ctx.shadowBlur = 0;
@@ -138,15 +138,23 @@ function drawGem(x, y, s, t) {
 // ---- lazer ip: iki nokta arası, gökkuşağı + parlak çekirdek + kıvılcım ----
 function beam(x1, y1, x2, y2, hue, t) {
   const g = ctx.createLinearGradient(x1, y1, x2, y2);
-  g.addColorStop(0, `hsla(${hue}, 100%, 65%, .9)`);
-  g.addColorStop(1, `hsla(${hue + 70}, 100%, 65%, .9)`);
+  g.addColorStop(0, `hsla(${hue}, 100%, 62%, 1)`);
+  g.addColorStop(1, `hsla(${hue + 70}, 100%, 62%, 1)`);
+  ctx.lineCap = 'round';
+  // 1) dış hale: geniş, yumuşak
+  ctx.strokeStyle = `hsla(${hue + 35}, 100%, 60%, .3)`;
+  ctx.lineWidth = 11;
+  ctx.shadowColor = `hsl(${hue + 35}, 100%, 58%)`; ctx.shadowBlur = 26;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  // 2) gövde: kalın gökkuşağı
   ctx.strokeStyle = g;
-  ctx.lineWidth = 2.6;
-  ctx.shadowColor = `hsl(${hue + 35}, 100%, 60%)`; ctx.shadowBlur = 14;
+  ctx.lineWidth = 4.6;
+  ctx.shadowBlur = 18;
   ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,255,255,.85)';    // parlak çekirdek
-  ctx.lineWidth = 0.9;
+  // 3) beyaz çekirdek: lazer parlaklığı
+  ctx.strokeStyle = 'rgba(255,255,255,.95)';
+  ctx.lineWidth = 1.8;
   ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
   if (Math.random() < (IS_MOBILE ? .25 : .6)) {
     const k = Math.random();
@@ -156,17 +164,18 @@ function beam(x1, y1, x2, y2, hue, t) {
 
 // ---- neon el iskeleti: gökkuşağı tel-kafes ----
 function drawHand(h, t, baseHue) {
-  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 3.6;
   HAND_CONN.forEach(([a, b], i) => {
     const hue = (baseHue + i * 9 + t * 30) % 360;
-    ctx.strokeStyle = `hsla(${hue}, 100%, 66%, .85)`;
-    ctx.shadowColor = `hsl(${hue}, 100%, 60%)`; ctx.shadowBlur = IS_MOBILE ? 0 : 10;
+    ctx.strokeStyle = `hsla(${hue}, 100%, 68%, .95)`;
+    ctx.shadowColor = `hsl(${hue}, 100%, 60%)`; ctx.shadowBlur = IS_MOBILE ? 0 : 16;
     ctx.beginPath(); ctx.moveTo(h.px(a), h.py(a)); ctx.lineTo(h.px(b), h.py(b)); ctx.stroke();
   });
   ctx.shadowBlur = 0;
   ctx.fillStyle = 'rgba(255,255,255,.95)';
   for (let i = 0; i < 21; i++) {
-    ctx.beginPath(); ctx.arc(h.px(i), h.py(i), TIPS.includes(i) ? 4 : 2.6, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(h.px(i), h.py(i), TIPS.includes(i) ? 5.5 : 3.4, 0, 7); ctx.fill();
   }
 }
 
