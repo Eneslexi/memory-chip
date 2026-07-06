@@ -833,7 +833,7 @@ function reshuffle() {
   spark(innerWidth / 2, innerHeight / 2, 40, 9);
   sndShuffle();
 }
-const MAX_WALL = REEL ? 28 : 36; // reel: az kart = akıcı animasyon + temiz ekran; normal: 36
+const MAX_WALL = REEL ? 34 : 36; // reel: kalabalık duvar (referans yoğunluğu) // reel: az kart = akıcı animasyon + temiz ekran; normal: 36
 async function spawnCards() {
   document.querySelectorAll('.card').forEach(e => e.remove());
   cards.length = 0;

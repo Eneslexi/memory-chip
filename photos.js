@@ -198,5 +198,21 @@ const PHOTOS = [
  {
   "file": "photos_portre/15.jpg",
   "name": "The Thinker"
+ },
+ {
+  "file": "photos_ai/00.jpg",
+  "name": "Charcoal Muse"
+ },
+ {
+  "file": "photos_ai/01.jpg",
+  "name": "The Professor"
+ },
+ {
+  "file": "photos_ai/02.jpg",
+  "name": "Canvas Smile"
+ },
+ {
+  "file": "photos_ai/03.jpg",
+  "name": "Wise Eyes"
  }
 ];
