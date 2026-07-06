@@ -1246,7 +1246,7 @@ function onResults(res) {
     const open = !pinchState[hi] &&
       fingerExtended(lm, 8, 6) && fingerExtended(lm, 12, 10) &&
       fingerExtended(lm, 16, 14) && fingerExtended(lm, 20, 18);
-    const fist = !pinchState[hi] && !open &&                     // ✊ yumruk: dört parmak kıvrık
+    const fist = !open &&                                        // ✊ yumruk: dört parmak kıvrık
       !fingerExtended(lm, 8, 6) && !fingerExtended(lm, 12, 10) &&
       !fingerExtended(lm, 16, 14) && !fingerExtended(lm, 20, 18);
     const x = (1 - (th.x + ix.x) / 2) * innerWidth;
@@ -1417,7 +1417,7 @@ function onResults(res) {
     // ✊ YUMRUK (yörüngedeyken): 💍 HALKA düzenine dön — birkaç kare sürmeli, gürültüde tetiklenmez
     const fistP = pts.find(q => q.fist);
     fistStreak = (orbitMode && fistP) ? fistStreak + 1 : 0;
-    if (orbitMode && fistStreak > 6 && orbitType !== 0 && performance.now() - lastSwipe > 800) {
+    if (orbitMode && fistStreak > 2 && orbitType !== 0) {
       lastSwipe = performance.now(); fistStreak = 0;
       orbitType = 0;
       for (let k = 0; k < 3; k++)
