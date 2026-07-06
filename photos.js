@@ -134,5 +134,69 @@ const PHOTOS = [
  {
   "file": "photos_duygu/09.jpg",
   "name": "The Way Home"
+ },
+ {
+  "file": "photos_portre/00.jpg",
+  "name": "Old Friends"
+ },
+ {
+  "file": "photos_portre/01.jpg",
+  "name": "Winter Smile"
+ },
+ {
+  "file": "photos_portre/02.jpg",
+  "name": "Behind the Blinds"
+ },
+ {
+  "file": "photos_portre/03.jpg",
+  "name": "That Laugh"
+ },
+ {
+  "file": "photos_portre/04.jpg",
+  "name": "Summer Haze"
+ },
+ {
+  "file": "photos_portre/05.jpg",
+  "name": "Golden Hour"
+ },
+ {
+  "file": "photos_portre/06.jpg",
+  "name": "Flower Crown"
+ },
+ {
+  "file": "photos_portre/07.jpg",
+  "name": "Quiet Eyes"
+ },
+ {
+  "file": "photos_portre/08.jpg",
+  "name": "Soft Light"
+ },
+ {
+  "file": "photos_portre/09.jpg",
+  "name": "City Walk"
+ },
+ {
+  "file": "photos_portre/10.jpg",
+  "name": "Scarlet"
+ },
+ {
+  "file": "photos_portre/11.jpg",
+  "name": "First Snow"
+ },
+ {
+  "file": "photos_portre/12.jpg",
+  "name": "Sunday Smile"
+ },
+ {
+  "file": "photos_portre/13.jpg",
+  "name": "Chasing Sun"
+ },
+ {
+  "file": "photos_portre/14.jpg",
+  "name": "Stage Light"
+ },
+ {
+  "file": "photos_portre/15.jpg",
+  "name": "The Thinker"
  }
 ];

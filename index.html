@@ -696,6 +696,25 @@ function makeCard(ph, i) { // ph: {src, name, rec?} — rec = DB kaydı (kullan�
   return c;
 }
 const LEFT_PAD = REEL ? 24 : 16 + slotW + 26; // reel: yuvalar gizli, tüm ekran kullanılır
+function separateTargets(margin = 10) { // hedefleri birbirinden AYIR — kartlar iç içe girmesin
+  for (let it = 0; it < 4; it++) {
+    for (let i = 0; i < cards.length; i++) for (let j = i + 1; j < cards.length; j++) {
+      const a = cards[i], b = cards[j];
+      const ax = a.tx + a.baseW / 2, ay = a.ty + a.baseH / 2;
+      const bx = b.tx + b.baseW / 2, by = b.ty + b.baseH / 2;
+      const ox = (a.baseW + b.baseW) / 2 + margin - Math.abs(ax - bx);
+      const oy = (a.baseH + b.baseH) / 2 + margin - Math.abs(ay - by);
+      if (ox > 0 && oy > 0) {                     // çakışma: dar eksende yarı yarıya it
+        if (ox < oy) { const s2 = (ax < bx ? -1 : 1) * ox / 2; a.tx += s2; b.tx -= s2; }
+        else         { const s2 = (ay < by ? -1 : 1) * oy / 2; a.ty += s2; b.ty -= s2; }
+      }
+    }
+    for (const c of cards) {                      // ekran içinde kal
+      c.tx = Math.max(8, Math.min(innerWidth - c.baseW - 8, c.tx));
+      c.ty = Math.max(76, Math.min(innerHeight - c.baseH - 76, c.ty));
+    }
+  }
+}
 function collageTargets() { // KOLAJ (referans reel): fotoğraflar yüzün ETRAFINA halka gibi dizilir
   const cx = innerWidth / 2, cy = innerHeight * 0.47;
   const clearX = Math.min(innerWidth * 0.15, 240);   // yüz boşluğu — merkez temiz kalır
@@ -710,6 +729,7 @@ function collageTargets() { // KOLAJ (referans reel): fotoğraflar yüzün ETRAF
     c.ty = Math.max(76, Math.min(innerHeight - c.baseH - 76, cy + Math.sin(a) * ry - c.baseH / 2));
     c.trot = (Math.random() - .5) * 18;
   });
+  separateTargets();   // kalabalık ama AYRIK — referans duvar hissi
 }
 function scatterTargets() {
   for (const c of cards) {
@@ -717,6 +737,7 @@ function scatterTargets() {
     c.ty = 84 + Math.random() * (innerHeight - c.baseH - 170);
     c.trot = (Math.random() - .5) * 26;
   }
+  separateTargets(6);
 }
 function gridTargets() {
   const n = cards.length, availW = innerWidth - LEFT_PAD - 40;
@@ -812,7 +833,7 @@ function reshuffle() {
   spark(innerWidth / 2, innerHeight / 2, 40, 9);
   sndShuffle();
 }
-const MAX_WALL = REEL ? 22 : 36; // reel: az kart = akıcı animasyon + temiz ekran; normal: 36
+const MAX_WALL = REEL ? 28 : 36; // reel: az kart = akıcı animasyon + temiz ekran; normal: 36
 async function spawnCards() {
   document.querySelectorAll('.card').forEach(e => e.remove());
   cards.length = 0;
