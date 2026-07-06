@@ -47,17 +47,19 @@
     text-align: center; line-height: 1;
     padding: 4% 2% 5% 2%; white-space: nowrap; overflow: hidden;
   }
-  .card.held { /* hologram tutuş: neon cyan çerçeve + nabız — HER ZAMAN en önde ve tam opak */
-    box-shadow: 0 0 0 2px rgba(103,232,249,.85), 0 0 34px rgba(103,232,249,.55),
-                0 0 120px rgba(103,232,249,.25), 0 30px 90px rgba(0,0,0,.75);
-    animation: holdpulse 1.6s ease-in-out infinite;
+  .card.held { /* hologram tutuş — gölge SABİT (box-shadow animasyonu kasıyordu) */
+    box-shadow: 0 0 0 2px rgba(103,232,249,.85), 0 18px 60px rgba(0,0,0,.6);
     z-index: 36 !important;      /* yörünge kartları (inline z ≤ 22) asla üstüne çıkamaz */
     opacity: 1 !important;       /* arkadayken tutulsa bile soluk kalmaz */
   }
-  @keyframes holdpulse {
-    50% { box-shadow: 0 0 0 2.5px rgba(165,243,252,1), 0 0 52px rgba(103,232,249,.85),
-                      0 0 150px rgba(103,232,249,.4), 0 30px 90px rgba(0,0,0,.75); }
+  .card.held::after {            /* nabız: SADECE opaklık animasyonu — GPU dostu, kasmaz */
+    content: ''; position: absolute; inset: -4px; border-radius: 6px;
+    border: 2.5px solid rgba(165,243,252,.95);
+    box-shadow: 0 0 26px rgba(103,232,249,.65), inset 0 0 18px rgba(103,232,249,.25);
+    animation: holdpulse 1.6s ease-in-out infinite;
+    pointer-events: none;
   }
+  @keyframes holdpulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
   .card.warp img { animation: warpin .55s steps(4) both; } /* kolaja dönüşte dijital parıltı */
   @keyframes warpin {
     0%   { filter: hue-rotate(50deg) brightness(2) saturate(2.4) contrast(1.3); }
