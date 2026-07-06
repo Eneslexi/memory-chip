@@ -47,11 +47,12 @@
     text-align: center; line-height: 1;
     padding: 4% 2% 5% 2%; white-space: nowrap; overflow: hidden;
   }
-  .card.held { /* hologram tutuş: neon cyan çerçeve + nabız */
+  .card.held { /* hologram tutuş: neon cyan çerçeve + nabız — HER ZAMAN en önde ve tam opak */
     box-shadow: 0 0 0 2px rgba(103,232,249,.85), 0 0 34px rgba(103,232,249,.55),
                 0 0 120px rgba(103,232,249,.25), 0 30px 90px rgba(0,0,0,.75);
     animation: holdpulse 1.6s ease-in-out infinite;
-    z-index: 20;
+    z-index: 36 !important;      /* yörünge kartları (inline z ≤ 22) asla üstüne çıkamaz */
+    opacity: 1 !important;       /* arkadayken tutulsa bile soluk kalmaz */
   }
   @keyframes holdpulse {
     50% { box-shadow: 0 0 0 2.5px rgba(165,243,252,1), 0 0 52px rgba(103,232,249,.85),
