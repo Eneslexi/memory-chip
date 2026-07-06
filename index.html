@@ -366,7 +366,7 @@ if (IS_MOBILE) addEventListener('DOMContentLoaded', () => {
 const REEL = new URLSearchParams(location.search).has('reel'); // çekim modu: UI gizli, sahne temiz
 if (REEL) document.body.classList.add('reel');
 const S = Math.min(1, innerWidth / 980) * (IS_MOBILE ? 1.15 : 1); // genel ölçek
-const GS = Math.max(0.35, Math.min(1, innerWidth / 1400)); // jest eşikleri ekranla ölçeklenir (telefonda da tetiklenir)
+const GS = Math.max(0.35, Math.min(1, innerWidth / 1100)); // masaüstü=1 (eski his); yalnız telefonda küçülür
 const LERP = 0.16, DAMP = 0.985;
 const cards = [];
 let held = null, holdHand = -1, scaleBase = null, grabHandSize = null;
@@ -755,7 +755,7 @@ function gridTargets() {
 let regatherT = null, waves = [];
 // ===== 👏 3D YÖRÜNGE MODU: alkışla aç/kapa — kartlar uzay boşluğunda ağır ağır döner =====
 // Yörüngedeyken 🖐️➡️ savurma = formasyon değiştir: 💍 halka → 🧬 sarmal → ∞ sonsuzluk → 🌌 galaksi
-let orbitMode = false, orbitA = 0, orbitType = 0;
+let orbitMode = false, orbitA = 0, orbitType = 0, orbCount = 1;
 function toggleOrbit(wx, wy) {
   clearTimeout(regatherT);                          // bekleyen kolaj toplanması iptal
   for (let k = 0; k < 3; k++) waves.push({ x: wx, y: wy, r: 12 + k * 24, s: 14 + k * 4, life: 1 });
@@ -763,7 +763,12 @@ function toggleOrbit(wx, wy) {
   sndShuffle();
   if (!orbitMode) {
     orbitMode = true; orbitType = 0;   // giriş her zaman 💍 HALKA ile — öngörülebilir
-    cards.forEach((c, i) => { c.oi = i; c.tw = c.baseW; c.th = c.baseH; c.pull = 0.02; });
+    orbCount = Math.min(18, cards.length);   // formasyon NET okunsun: yörüngede en fazla 18 kart
+    cards.forEach((c, i) => {
+      c.orb = i < orbCount; c.oi = i;
+      c.tw = c.baseW; c.th = c.baseH; c.pull = 0.02;
+      if (!c.orb) c.el.style.opacity = .15;  // kalanlar arka planda sönükleşir
+    });
   } else exitOrbit();
 }
 function exitOrbit() { // SARMAL DAĞILMA: kartlar döne döne birbirinden ayrılır, sonra kolaja süzülür
@@ -1010,21 +1015,21 @@ function loop(tNow) {
       const ny = c.y + (c.ty - c.y) * LERP * dt;
       c.vx = nx - c.x; c.vy = ny - c.y;
       c.x = nx; c.y = ny;
-    } else if (orbitMode) {
-      // 3D YÖRÜNGE: 4 formasyon — öndekiler büyük/parlak, arkadakiler küçük/soluk
-      const f = c.oi / Math.max(1, cards.length);
+    } else if (orbitMode && c.orb) {
+      // 3D YÖRÜNGE — öndekiler büyük/parlak, arkadakiler küçük/soluk
+      const f = c.oi / Math.max(1, orbCount);
       const R = Math.min(innerWidth * 0.38, 620);
       const cx0 = innerWidth / 2, cy0 = innerHeight * 0.46;
       let th2 = orbitA + f * Math.PI * 2, depth, ox, oy;
       if (orbitType === 1) {          // 🧬 SARMAL KULE: dikey spiral, çift tur
         th2 = orbitA * 1.15 + f * Math.PI * 4;
         depth = Math.sin(th2);
-        ox = cx0 + Math.cos(th2) * R * 0.55 - c.baseW / 2;
+        ox = cx0 + Math.cos(th2) * R * 0.42 - c.baseW / 2;
         oy = innerHeight * (0.14 + 0.62 * f) + depth * 8 - c.baseH / 2;
       } else if (orbitType === 2) {   // ∞ SONSUZLUK: yatay sekiz çizer
         depth = Math.sin(th2 * 2 + 1);
         ox = cx0 + Math.sin(th2) * R - c.baseW / 2;
-        oy = cy0 + Math.sin(th2 * 2) * innerHeight * 0.16 - c.baseH / 2;
+        oy = cy0 + Math.sin(th2 * 2) * innerHeight * 0.21 - c.baseH / 2;
       } else {                        // 💍 HALKA: klasik elips
         depth = Math.sin(th2);
         ox = cx0 + Math.cos(th2) * R - c.baseW / 2;
