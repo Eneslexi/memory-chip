@@ -126,14 +126,12 @@ function drawGem(x, y, s, t) {
     const rz = vx * Math.sin(a) + vz * Math.cos(a);
     return { x: x + rx * s, y: y + vy * s, z: rz };
   });
-  ctx.lineWidth = 3.2;
-  for (const [i, j] of GEM_E) {
-    const depth = (pts[i].z + pts[j].z) / 2;
-    ctx.strokeStyle = `hsla(${180 + depth * 60 + t * 40}, 100%, 76%, ${0.7 + depth * 0.2})`;
-    ctx.shadowColor = '#8dfcff'; ctx.shadowBlur = 24;
-    ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
-  }
-  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  for (const [i, j] of GEM_E) { ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); }
+  ctx.strokeStyle = `hsla(${185 + t * 40 % 60}, 100%, 70%, .3)`;
+  ctx.lineWidth = 9; ctx.stroke();                            // hale
+  ctx.strokeStyle = `hsla(${185 + t * 40 % 60}, 100%, 78%, .95)`;
+  ctx.lineWidth = 3; ctx.stroke();                            // gövde
   if (Math.random() < .5) spawnSpark(x + (Math.random() - .5) * s * 2, y + (Math.random() - .5) * s * 2, 185);
 }
 
@@ -143,17 +141,16 @@ function beam(x1, y1, x2, y2, hue, t) {
   g.addColorStop(0, `hsla(${hue}, 100%, 62%, 1)`);
   g.addColorStop(1, `hsla(${hue + 70}, 100%, 62%, 1)`);
   ctx.lineCap = 'round';
-  // 1) dış hale: geniş, yumuşak
-  ctx.strokeStyle = `hsla(${hue + 35}, 100%, 60%, .3)`;
-  ctx.lineWidth = 11;
-  ctx.shadowColor = `hsl(${hue + 35}, 100%, 58%)`; ctx.shadowBlur = 26;
+  // PERFORMANS: shadowBlur YOK — glow, katmanlı çizgiyle (20x ucuz, takibe nefes aldırır)
+  ctx.strokeStyle = `hsla(${hue + 35}, 100%, 60%, .16)`;
+  ctx.lineWidth = 18;
   ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-  // 2) gövde: kalın gökkuşağı
+  ctx.strokeStyle = `hsla(${hue + 35}, 100%, 62%, .35)`;
+  ctx.lineWidth = 9;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
   ctx.strokeStyle = g;
-  ctx.lineWidth = 4.6;
-  ctx.shadowBlur = 18;
+  ctx.lineWidth = 4.4;
   ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-  ctx.shadowBlur = 0;
   // 3) beyaz çekirdek: lazer parlaklığı
   ctx.strokeStyle = 'rgba(255,255,255,.95)';
   ctx.lineWidth = 1.8;
@@ -166,15 +163,17 @@ function beam(x1, y1, x2, y2, hue, t) {
 
 // ---- neon el iskeleti: gökkuşağı tel-kafes ----
 function drawHand(h, t, baseHue) {
-  ctx.lineCap = 'round';
-  ctx.lineWidth = 3.6;
-  HAND_CONN.forEach(([a, b], i) => {
-    const hue = (baseHue + i * 9 + t * 30) % 360;
-    ctx.strokeStyle = `hsla(${hue}, 100%, 68%, .95)`;
-    ctx.shadowColor = `hsl(${hue}, 100%, 60%)`; ctx.shadowBlur = IS_MOBILE ? 0 : 16;
-    ctx.beginPath(); ctx.moveTo(h.px(a), h.py(a)); ctx.lineTo(h.px(b), h.py(b)); ctx.stroke();
-  });
-  ctx.shadowBlur = 0;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // PERFORMANS: tüm kemikler TEK path, gökkuşağı gradyan, 2 geçiş — gölge yok
+  const g = ctx.createLinearGradient(h.px(4), h.py(4), h.px(20), h.py(20));
+  g.addColorStop(0,  `hsl(${(baseHue + t * 40) % 360}, 100%, 66%)`);
+  g.addColorStop(.5, `hsl(${(baseHue + 70 + t * 40) % 360}, 100%, 66%)`);
+  g.addColorStop(1,  `hsl(${(baseHue + 140 + t * 40) % 360}, 100%, 66%)`);
+  ctx.beginPath();
+  for (const [a, b] of HAND_CONN) { ctx.moveTo(h.px(a), h.py(a)); ctx.lineTo(h.px(b), h.py(b)); }
+  ctx.strokeStyle = g;
+  ctx.globalAlpha = .25; ctx.lineWidth = 12; ctx.stroke();   // hale
+  ctx.globalAlpha = 1;   ctx.lineWidth = 3.6; ctx.stroke();  // gövde
   ctx.fillStyle = 'rgba(255,255,255,.95)';
   for (let i = 0; i < 21; i++) {
     ctx.beginPath(); ctx.arc(h.px(i), h.py(i), TIPS.includes(i) ? 5.5 : 3.4, 0, 7); ctx.fill();
@@ -226,7 +225,7 @@ function loop(now) {
 
   // kıvılcımlar
   sparks = sparks.filter(s => s.life > 0);
-  if (sparks.length > 240) sparks.splice(0, sparks.length - 240);
+  if (sparks.length > 150) sparks.splice(0, sparks.length - 150);
   for (const s of sparks) {
     s.x += s.vx; s.y += s.vy; s.vy += 0.02; s.life -= 0.025;
     ctx.globalAlpha = s.life;
@@ -250,7 +249,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   mp.onResults(onResults);
   new Camera(video, {
     onFrame: async () => await mp.send({ image: video }),
-    width: IS_MOBILE ? 640 : 960, height: IS_MOBILE ? 360 : 540, facingMode: 'user'
+    width: 640, height: 360, facingMode: 'user'   // düşük çözünürlük = hızlı çıkarım = güçlü takip
   }).start();
   requestAnimationFrame(loop);
 });
