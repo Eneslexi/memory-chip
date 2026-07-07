@@ -63,6 +63,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
 <script>
 const cv = document.getElementById('fx'), ctx = cv.getContext('2d');
 function resize() { cv.width = innerWidth; cv.height = innerHeight; }
@@ -153,14 +154,15 @@ function spawnDust(x, y, hue) { // uzay tozu: ışınlardan dökülen, ağır s�
 }
 
 // ---- 👏 ALKIŞ = LAZER PATLAMASI + REAKSİYON MODU ----
-const MODES = [
-  { cls: 'fx-acid',    name: 'CHEMICAL' },
-  { cls: 'fx-albino',  name: 'ALBINO' },
-  { cls: 'fx-xray',    name: 'X-RAY' },
-  { cls: 'fx-thermal', name: 'THERMAL' },
-  { cls: 'fx-noir',    name: 'NOIR' },
-  { cls: '',           name: 'NORMAL' },
+const MODES = [   // body: [r,g,b] = SADECE vücuda uygulanan renk (segmentasyon maskesi)
+  { cls: '',        name: 'AVATAR',   body: [70, 140, 255] },
+  { cls: '',        name: 'INFERNO',  body: [255, 70, 15], ember: true },
+  { cls: '',        name: 'GOLD',     body: [255, 185, 40] },
+  { cls: 'fx-xray', name: 'X-RAY',    body: null },
+  { cls: 'fx-acid', name: 'CHEMICAL', body: null },
+  { cls: '',        name: 'NORMAL',   body: null },
 ];
+let bodyMode = null;
 let twoDist = null, clapV = 0, lastClap = 0, modeIdx = -1;
 let rings = [], flash = 0;
 function clapBoom(x, y) {
@@ -174,9 +176,41 @@ function clapBoom(x, y) {
   const m = MODES[modeIdx];
   const cam = document.getElementById('cam');
   cam.className = m.cls;
+  bodyMode = m.body ? m : null;
   const me = document.getElementById('mode');
   me.textContent = m.name;
   me.classList.remove('pop'); void me.offsetWidth; me.classList.add('pop');
+}
+
+// ---- VÜCUT SEGMENTASYONU: filtre tüm ekrana değil SADECE vücuda ----
+let segModel = null, segMask = null;
+const tintCv = document.createElement('canvas'), tintCtx = tintCv.getContext('2d');
+const sampCv = document.createElement('canvas'), sampCtx = sampCv.getContext('2d', { willReadFrequently: true });
+sampCv.width = 96; sampCv.height = 54;
+let sampCells = [];
+function sampleMask() { // köz parçacıkları için: vücudun olduğu hücreleri örnekle (düşük çözünürlük = ucuz)
+  sampCtx.clearRect(0, 0, 96, 54);
+  sampCtx.save(); sampCtx.scale(-1, 1); sampCtx.drawImage(segMask, -96, 0, 96, 54); sampCtx.restore();
+  const d = sampCtx.getImageData(0, 0, 96, 54).data;
+  sampCells = [];
+  for (let i = 0; i < 96 * 54; i += 3) {          // her 3. piksel yeter
+    if (d[i * 4] > 128) sampCells.push({ x: (i % 96) / 96, y: (i / 96 | 0) / 54 });
+  }
+}
+function drawBody(m) { // silueti renge boya: yarı saydam gövde + additive parlama
+  if (!segMask) return;
+  const W = cv.width, H = cv.height;
+  if (tintCv.width !== W) { tintCv.width = W; tintCv.height = H; }
+  tintCtx.clearRect(0, 0, W, H);
+  tintCtx.save(); tintCtx.scale(-1, 1); tintCtx.drawImage(segMask, -W, 0, W, H); tintCtx.restore();
+  tintCtx.globalCompositeOperation = 'source-in';
+  tintCtx.fillStyle = `rgb(${m.body[0]},${m.body[1]},${m.body[2]})`;
+  tintCtx.fillRect(0, 0, W, H);
+  tintCtx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 0.48; ctx.drawImage(tintCv, 0, 0);                       // gövde boyası
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.3;  ctx.drawImage(tintCv, 0, 0);                       // parlama
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
 }
 
 // ---- dönen tel-kafes ELMAS (pinch noktasında) ----
@@ -273,6 +307,15 @@ function loop(now) {
   fpsCnt++;
   if (now - fpsT > 1000) { fpsVal = fpsCnt; fpsCnt = 0; fpsT = now; }
   ctx.clearRect(0, 0, cv.width, cv.height);
+  if (bodyMode) drawBody(bodyMode);                       // 🧬 vücut dönüşümü
+  if (bodyMode && bodyMode.ember && sampCells.length) {   // 🔥 INFERNO: silüetten yükselen közler
+    for (let ei = 0; ei < 4; ei++) {
+      const c = sampCells[(Math.random() * sampCells.length) | 0];
+      sparks.push({ x: c.x * cv.width + (Math.random() - .5) * 12, y: c.y * cv.height,
+                    vx: (Math.random() - .5) * .8, vy: -(0.9 + Math.random() * 1.8),
+                    life: 1, hue: 12 + Math.random() * 38, dust: true, sz: .8 + Math.random() * 2.2 });
+    }
+  }
   ctx.globalCompositeOperation = 'lighter';   // additive: ışıklar üst üste PARLAR
 
   hands.forEach((h, i) => drawHand(h, t, i ? 200 : 20));
@@ -350,11 +393,23 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const video = document.getElementById('cam');
   const mp = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
   mpHands = mp;
+  try {   // segmentasyon: vücut modları (yüklenemezse lazerler yine çalışır)
+    segModel = new SelfieSegmentation({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}` });
+    segModel.setOptions({ modelSelection: 0 });
+    segModel.onResults(r => { segMask = r.segmentationMask; if (bodyMode) sampleMask(); });
+  } catch (e) { segModel = null; }
   mp.setOptions({ maxNumHands: 2, modelComplexity: IS_MOBILE ? 0 : 1,
                   minDetectionConfidence: 0.6, minTrackingConfidence: 0.55 });
   mp.onResults(onResults);
+  let frameNo = 0;
   new Camera(video, {
-    onFrame: async () => await mp.send({ image: video }),
+    onFrame: async () => {
+      frameNo++;
+      await mp.send({ image: video });
+      if (segModel && frameNo % 2 === 0) {     // segmentasyon kare atlar: takip hızı korunur
+        try { await segModel.send({ image: video }); } catch (e) { segModel = null; }
+      }
+    },
     width: 800, height: 450, facingMode: 'user'   // doğruluk/hız dengesi
   }).start();
   requestAnimationFrame(loop);
