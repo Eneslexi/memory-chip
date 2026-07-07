@@ -114,6 +114,16 @@ function smoothLandmarks(raw) {
   return tracked.map(tr => tr.lm);
 }
 
+// ---- KOORDİNAT HARİTASI: video 'cover' ile kırpılıyor; landmark'ları GERÇEK görünen
+// kareye eşle (yamuk iskelet düzeltmesi — pencere oranı ne olursa olsun ele oturur) ----
+function vmap() {
+  const v = document.getElementById('cam');
+  const vw = v.videoWidth || 800, vh = v.videoHeight || 450;
+  const sc = Math.max(innerWidth / vw, innerHeight / vh);
+  const dw = vw * sc, dh = vh * sc;
+  return { dw, dh, ox: (innerWidth - dw) / 2, oy: (innerHeight - dh) / 2 };
+}
+
 // ---- jest durumu ----
 let hands = [];          // [{lm, px(i), py(i), pinch, open, fist, span, pinchPt}]
 const pinchOn = [false, false];
@@ -134,11 +144,12 @@ function onResults(res) {
     if ( pinchOn[hi] && dRel > 0.62) pinchOn[hi] = false;
     const open = !pinchOn[hi] && ext(lm,8,6) && ext(lm,12,10) && ext(lm,16,14) && ext(lm,20,18);
     const fist = !open && !ext(lm,8,6) && !ext(lm,12,10) && !ext(lm,16,14) && !ext(lm,20,18);
-    const px = i => (1 - lm[i].x) * innerWidth;
-    const py = i => lm[i].y * innerHeight;
+    const M = vmap();
+    const px = i => (1 - lm[i].x) * M.dw + M.ox;
+    const py = i => lm[i].y * M.dh + M.oy;
     return { lm, px, py, pinch: pinchOn[hi], open, fist, span,
-             pinchPt: { x: ((1 - lm[4].x) + (1 - lm[8].x)) / 2 * innerWidth,
-                        y: (lm[4].y + lm[8].y) / 2 * innerHeight } };
+             pinchPt: { x: ((1 - lm[4].x) + (1 - lm[8].x)) / 2 * M.dw + M.ox,
+                        y: (lm[4].y + lm[8].y) / 2 * M.dh + M.oy } };
   });
 }
 
@@ -202,9 +213,12 @@ function drawBody(m) { // GERÇEK RECOLOR: kendi görüntün + renk kanalı değ
   const W = cv.width, H = cv.height;
   if (tintCv.width !== W) { tintCv.width = W; tintCv.height = H; }
   const video = document.getElementById('cam');
+  const M = vmap();
   tintCtx.clearRect(0, 0, W, H);
-  // 1) aynalı gerçek görüntü (yüz hatları, gölgeler aynen)
-  tintCtx.save(); tintCtx.scale(-1, 1); tintCtx.drawImage(video, -W, 0, W, H); tintCtx.restore();
+  // 1) aynalı gerçek görüntü (yüz hatları, gölgeler aynen) — cover haritasıyla
+  tintCtx.save(); tintCtx.scale(-1, 1);
+  tintCtx.drawImage(video, -(M.ox + M.dw), M.oy, M.dw, M.dh);
+  tintCtx.restore();
   // 2) 'color' blend: parlaklık/detay senden, RENK hedeften -> gerçek cilt boyama
   tintCtx.globalCompositeOperation = 'color';
   tintCtx.fillStyle = `rgb(${m.body[0]},${m.body[1]},${m.body[2]})`;
@@ -216,7 +230,9 @@ function drawBody(m) { // GERÇEK RECOLOR: kendi görüntün + renk kanalı değ
   tintCtx.globalAlpha = 1;
   // 4) sadece vücut kalsın (maske)
   tintCtx.globalCompositeOperation = 'destination-in';
-  tintCtx.save(); tintCtx.scale(-1, 1); tintCtx.drawImage(segMask, -W, 0, W, H); tintCtx.restore();
+  tintCtx.save(); tintCtx.scale(-1, 1);
+  tintCtx.drawImage(segMask, -(M.ox + M.dw), M.oy, M.dw, M.dh);
+  tintCtx.restore();
   tintCtx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 0.94;
   ctx.drawImage(tintCv, 0, 0);
@@ -321,7 +337,8 @@ function loop(now) {
   if (bodyMode && bodyMode.ember && sampCells.length) {   // 🔥 INFERNO: silüetten yükselen közler
     for (let ei = 0; ei < 4; ei++) {
       const c = sampCells[(Math.random() * sampCells.length) | 0];
-      sparks.push({ x: c.x * cv.width + (Math.random() - .5) * 12, y: c.y * cv.height,
+      const M2 = vmap();
+      sparks.push({ x: M2.ox + c.x * M2.dw + (Math.random() - .5) * 12, y: M2.oy + c.y * M2.dh,
                     vx: (Math.random() - .5) * .8, vy: -(0.9 + Math.random() * 1.8),
                     life: 1, hue: 12 + Math.random() * 38, dust: true, sz: .8 + Math.random() * 2.2 });
     }

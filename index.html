@@ -1147,11 +1147,18 @@ const JOINT_COLOR = i =>
   i === 0                       ? '#ff2038' :  // bilek (CMC) kırmızı — kamera için doygun
   [1,5,9,13,17].includes(i)     ? '#ffcf28' :  // boğumlar (MCP) sarı
                                   '#ff5c8a';   // orta eklem + uçlar (IP) canlı pembe
+function vmap() { // 'cover' kırpma haritası: koordinatlar ele otursun
+  const vw = video.videoWidth || 960, vh = video.videoHeight || 540;
+  const sc = Math.max(innerWidth / vw, innerHeight / vh);
+  const dw = vw * sc, dh = vh * sc;
+  return { dw, dh, ox: (innerWidth - dw) / 2, oy: (innerHeight - dh) / 2 };
+}
 function drawHands(hands) {
   hctx.clearRect(0, 0, hc.width, hc.height);
+  const M = vmap();
   for (const lm of hands) {
-    const px = i => (1 - lm[i].x) * innerWidth;   // aynalı
-    const py = i => lm[i].y * innerHeight;
+    const px = i => (1 - lm[i].x) * M.dw + M.ox;   // aynalı + kırpma düzeltmeli
+    const py = i => lm[i].y * M.dh + M.oy;
     // kemikler — TELEFON KAMERASI İÇİN: önce koyu kontur (kontrast), üstüne kalın parlak çizgi
     hctx.lineCap = 'round';
     hctx.strokeStyle = 'rgba(2,6,16,.55)';
@@ -1249,10 +1256,11 @@ function onResults(res) {
     const fist = !open &&                                        // ✊ yumruk: dört parmak kıvrık
       !fingerExtended(lm, 8, 6) && !fingerExtended(lm, 12, 10) &&
       !fingerExtended(lm, 16, 14) && !fingerExtended(lm, 20, 18);
-    const x = (1 - (th.x + ix.x) / 2) * innerWidth;
-    const y = ((th.y + ix.y) / 2) * innerHeight;
-    const palmX = (1 - lm[9].x) * innerWidth;
-    const palmY = lm[9].y * innerHeight;
+    const M = vmap();
+    const x = (1 - (th.x + ix.x) / 2) * M.dw + M.ox;
+    const y = ((th.y + ix.y) / 2) * M.dh + M.oy;
+    const palmX = (1 - lm[9].x) * M.dw + M.ox;
+    const palmY = lm[9].y * M.dh + M.oy;
     const span = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y) || 0.001; // avuç boyu: uzaklık normalizasyonu
     pts.push({ x, y, pinch: pinchState[hi], pinchNew: pinchState[hi] && !wasPinch, open, fist, palmX, palmY, d, span });
     const dot = dots[hi];
