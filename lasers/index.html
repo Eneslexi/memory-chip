@@ -72,10 +72,12 @@ function smoothLandmarks(raw) {
       out.push(lm.map((p, j) => {
         const q = prev[j];
         const d = Math.hypot(p.x - q.x, p.y - q.y);
-        // lazerler için ÇEVİK ayar: hafif yumuşatma + hareket yönüne öngörü (gecikme telafisi)
-        const a = Math.min(0.92, 0.3 + d * 40);
+        // ÇEVİK + SAKİN: duruşta güçlü filtre ve SIFIR öngörü (titremez);
+        // hızlı harekette filtre gevşer, öngörü devreye girer (gecikmez)
+        const a = Math.min(0.9, 0.15 + d * 35);
+        const L = Math.min(0.5, d * 28);
         const nx = q.x + (p.x - q.x) * a, ny = q.y + (p.y - q.y) * a;
-        return { x: nx + (nx - q.x) * 0.45, y: ny + (ny - q.y) * 0.45 };
+        return { x: nx + (nx - q.x) * L, y: ny + (ny - q.y) * L };
       }));
     }
   }
@@ -91,7 +93,9 @@ function ext(lm, tip, pip) {
   return Math.hypot(lm[tip].x - w.x, lm[tip].y - w.y) >
          Math.hypot(lm[pip].x - w.x, lm[pip].y - w.y) * 1.12;
 }
+let lastRes = 0, mpHands = null;
 function onResults(res) {
+  lastRes = performance.now();
   const raw = (res.multiHandLandmarks || []).slice(0, 2);
   const sm = smoothLandmarks(raw);
   hands = sm.map((lm, hi) => {
@@ -191,7 +195,17 @@ function hud(spreadPct, gesture) {
 }
 
 // ---- ana döngü ----
+let lastDraw = 0;
 function loop(now) {
+  requestAnimationFrame(loop);
+  if (now - lastDraw < 15) return;          // çizimi ~60fps'e sabitle: takibe nefes
+  lastDraw = now;
+  // BEKÇİ: el verisi kesilirse hayalet lazerler ekranda KALMASIN
+  if (hands.length && performance.now() - lastRes > 600) { hands = []; smoothHands = []; }
+  if (mpHands && performance.now() - lastRes > 3000) {   // motor sustu: resetle
+    lastRes = performance.now();
+    try { mpHands.reset(); } catch (e) {}
+  }
   const t = now / 1000;
   fpsCnt++;
   if (now - fpsT > 1000) { fpsVal = fpsCnt; fpsCnt = 0; fpsT = now; }
@@ -236,7 +250,6 @@ function loop(now) {
   ctx.globalCompositeOperation = 'source-over';
 
   hud(spreadPct, gesture);
-  requestAnimationFrame(loop);
 }
 
 // ---- başlat ----
@@ -244,6 +257,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   document.getElementById('startOverlay').remove();
   const video = document.getElementById('cam');
   const mp = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  mpHands = mp;
   mp.setOptions({ maxNumHands: 2, modelComplexity: 0,
                   minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
   mp.onResults(onResults);
