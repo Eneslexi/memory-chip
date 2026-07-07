@@ -63,7 +63,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+
 <script>
 const cv = document.getElementById('fx'), ctx = cv.getContext('2d');
 function resize() { cv.width = innerWidth; cv.height = innerHeight; }
@@ -165,13 +165,9 @@ function spawnDust(x, y, hue) { // uzay tozu: ışınlardan dökülen, ağır s�
 }
 
 // ---- 👏 ALKIŞ = LAZER PATLAMASI + REAKSİYON MODU ----
-const MODES = [   // body: [r,g,b] = SADECE vücuda uygulanan renk (segmentasyon maskesi)
-  { cls: '',        name: 'AVATAR',   body: [60, 150, 230] },
-  { cls: '',        name: 'INFERNO',  body: [235, 60, 20], ember: true },
-  { cls: '',        name: 'GOLD',     body: [230, 160, 30] },
-  { cls: 'fx-xray', name: 'X-RAY',    body: null },
-  { cls: 'fx-acid', name: 'CHEMICAL', body: null },
-  { cls: '',        name: 'NORMAL',   body: null },
+const MODES = [   // sade ve etkili: alkış X-RAY ile NORMAL arasında geçirir
+  { cls: 'fx-xray', name: 'X-RAY',  body: null },
+  { cls: '',        name: 'NORMAL', body: null },
 ];
 let bodyMode = null, camFilter = '';
 const camEl = document.getElementById('cam');
@@ -367,7 +363,7 @@ function loop(now) {
     // 👏 ALKIŞ: avuçlar hızla birleşince patlama + reaksiyon
     if (twoDist !== null) {
       clapV = clapV * 0.5 + (twoDist - ddPx) * 0.5;
-      if (ddPx < Math.max(120, innerWidth * 0.09) && clapV > 14 && now - lastClap > 1200) {
+      if (ddPx < Math.max(140, innerWidth * 0.11) && clapV > 11 && now - lastClap > 1000) {
         lastClap = now;
         clapBoom((A.px(9) + B.px(9)) / 2, (A.py(9) + B.py(9)) / 2);
       }
@@ -432,11 +428,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const video = document.getElementById('cam');
   const mp = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
   mpHands = mp;
-  try {   // segmentasyon: vücut modları (yüklenemezse lazerler yine çalışır)
-    segModel = new SelfieSegmentation({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}` });
-    segModel.setOptions({ modelSelection: 0 });
-    segModel.onResults(r => { segMask = r.segmentationMask; if (bodyMode) sampleMask(); });
-  } catch (e) { segModel = null; }
+  segModel = null;   // vücut modları kaldırıldı: segmentasyon yüklenmez (performans)
   mp.setOptions({ maxNumHands: 2, modelComplexity: IS_MOBILE ? 0 : 1,
                   minDetectionConfidence: 0.6, minTrackingConfidence: 0.55 });
   mp.onResults(onResults);
