@@ -155,9 +155,9 @@ function spawnDust(x, y, hue) { // uzay tozu: ışınlardan dökülen, ağır s�
 
 // ---- 👏 ALKIŞ = LAZER PATLAMASI + REAKSİYON MODU ----
 const MODES = [   // body: [r,g,b] = SADECE vücuda uygulanan renk (segmentasyon maskesi)
-  { cls: '',        name: 'AVATAR',   body: [70, 140, 255] },
-  { cls: '',        name: 'INFERNO',  body: [255, 70, 15], ember: true },
-  { cls: '',        name: 'GOLD',     body: [255, 185, 40] },
+  { cls: '',        name: 'AVATAR',   body: [60, 150, 230] },
+  { cls: '',        name: 'INFERNO',  body: [235, 60, 20], ember: true },
+  { cls: '',        name: 'GOLD',     body: [230, 160, 30] },
   { cls: 'fx-xray', name: 'X-RAY',    body: null },
   { cls: 'fx-acid', name: 'CHEMICAL', body: null },
   { cls: '',        name: 'NORMAL',   body: null },
@@ -197,20 +197,30 @@ function sampleMask() { // köz parçacıkları için: vücudun olduğu hücrele
     if (d[i * 4] > 128) sampCells.push({ x: (i % 96) / 96, y: (i / 96 | 0) / 54 });
   }
 }
-function drawBody(m) { // silueti renge boya: yarı saydam gövde + additive parlama
+function drawBody(m) { // GERÇEK RECOLOR: kendi görüntün + renk kanalı değişimi (doku/gölge korunur)
   if (!segMask) return;
   const W = cv.width, H = cv.height;
   if (tintCv.width !== W) { tintCv.width = W; tintCv.height = H; }
+  const video = document.getElementById('cam');
   tintCtx.clearRect(0, 0, W, H);
-  tintCtx.save(); tintCtx.scale(-1, 1); tintCtx.drawImage(segMask, -W, 0, W, H); tintCtx.restore();
-  tintCtx.globalCompositeOperation = 'source-in';
+  // 1) aynalı gerçek görüntü (yüz hatları, gölgeler aynen)
+  tintCtx.save(); tintCtx.scale(-1, 1); tintCtx.drawImage(video, -W, 0, W, H); tintCtx.restore();
+  // 2) 'color' blend: parlaklık/detay senden, RENK hedeften -> gerçek cilt boyama
+  tintCtx.globalCompositeOperation = 'color';
   tintCtx.fillStyle = `rgb(${m.body[0]},${m.body[1]},${m.body[2]})`;
   tintCtx.fillRect(0, 0, W, H);
+  // 3) hafif ton derinliği: aynı rengi çok düşük alfayla multiply (ten maviye 'boyanmış' hissi)
+  tintCtx.globalCompositeOperation = 'multiply';
+  tintCtx.globalAlpha = 0.25;
+  tintCtx.fillRect(0, 0, W, H);
+  tintCtx.globalAlpha = 1;
+  // 4) sadece vücut kalsın (maske)
+  tintCtx.globalCompositeOperation = 'destination-in';
+  tintCtx.save(); tintCtx.scale(-1, 1); tintCtx.drawImage(segMask, -W, 0, W, H); tintCtx.restore();
   tintCtx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = 0.48; ctx.drawImage(tintCv, 0, 0);                       // gövde boyası
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = 0.3;  ctx.drawImage(tintCv, 0, 0);                       // parlama
-  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.globalAlpha = 0.94;
+  ctx.drawImage(tintCv, 0, 0);
+  ctx.globalAlpha = 1;
 }
 
 // ---- dönen tel-kafes ELMAS (pinch noktasında) ----
