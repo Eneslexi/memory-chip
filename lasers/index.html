@@ -8,7 +8,7 @@
   html, body { margin: 0; height: 100%; overflow: hidden; background: #000;
                font-family: 'SF Mono', Menlo, 'Cascadia Code', monospace; touch-action: none; }
   #cam { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover;
-         transform: scaleX(-1); filter: brightness(.9) saturate(1.05) contrast(1.04); }
+         transform: scaleX(-1); visibility: hidden; }  /* görüntüyü canvas çizer: iskeletle AYNI uzay */
   #fx  { position: fixed; inset: 0; z-index: 5; }
   /* teknik HUD — referans videodaki gibi köşede canlı panel */
   #hud { position: fixed; top: 16px; left: 16px; z-index: 10;
@@ -173,7 +173,8 @@ const MODES = [   // body: [r,g,b] = SADECE vücuda uygulanan renk (segmentasyon
   { cls: 'fx-acid', name: 'CHEMICAL', body: null },
   { cls: '',        name: 'NORMAL',   body: null },
 ];
-let bodyMode = null;
+let bodyMode = null, camFilter = '';
+const camEl = document.getElementById('cam');
 let twoDist = null, clapV = 0, lastClap = 0, modeIdx = -1;
 let rings = [], flash = 0;
 function clapBoom(x, y) {
@@ -185,8 +186,7 @@ function clapBoom(x, y) {
   }
   modeIdx = (modeIdx + 1) % MODES.length;               // sıradaki reaksiyon
   const m = MODES[modeIdx];
-  const cam = document.getElementById('cam');
-  cam.className = m.cls;
+  camFilter = m.cls;                    // görüntü filtresi canvas'ta uygulanır
   bodyMode = m.body ? m : null;
   const me = document.getElementById('mode');
   me.textContent = m.name;
@@ -333,6 +333,18 @@ function loop(now) {
   fpsCnt++;
   if (now - fpsT > 1000) { fpsVal = fpsCnt; fpsCnt = 0; fpsT = now; }
   ctx.clearRect(0, 0, cv.width, cv.height);
+  // KAMERA GÖRÜNTÜSÜ: iskeletle aynı harita, aynı kare — hizasızlık imkânsız
+  const MV = vmap();
+  if (typeof ctx.filter === 'string') {
+    let f = 'brightness(.92) saturate(1.06) contrast(1.05)';
+    if (camFilter === 'fx-xray')      f = 'invert(1) hue-rotate(180deg) contrast(1.15)';
+    else if (camFilter === 'fx-acid') f = `hue-rotate(${Math.round(t * 140) % 360}deg) saturate(2.6) contrast(1.15)`;
+    ctx.filter = f;
+  }
+  ctx.save(); ctx.scale(-1, 1);
+  ctx.drawImage(camEl, -(MV.ox + MV.dw), MV.oy, MV.dw, MV.dh);
+  ctx.restore();
+  if (typeof ctx.filter === 'string') ctx.filter = 'none';
   if (bodyMode) drawBody(bodyMode);                       // 🧬 vücut dönüşümü
   if (bodyMode && bodyMode.ember && sampCells.length) {   // 🔥 INFERNO: silüetten yükselen közler
     for (let ei = 0; ei < 4; ei++) {
