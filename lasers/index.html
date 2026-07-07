@@ -18,6 +18,26 @@
          box-shadow: 0 0 18px rgba(60, 255, 200, .12); }
   #hud b { color: #7dffd0; font-weight: 700; }
   #hud .gest { color: #ffe066; font-weight: 700; }
+  /* 👏 alkış modları: her vuruşta yüz farklı 'reaksiyon' geçirir */
+  #cam.fx-acid   { animation: acidspin 2.6s linear infinite; }
+  @keyframes acidspin { from { filter: hue-rotate(0deg) saturate(2.6) contrast(1.15); }
+                        to   { filter: hue-rotate(360deg) saturate(2.6) contrast(1.15); } }
+  #cam.fx-albino { filter: grayscale(1) brightness(1.6) contrast(1.12); }
+  #cam.fx-xray   { filter: invert(1) hue-rotate(180deg) contrast(1.15); }
+  #cam.fx-thermal{ filter: hue-rotate(180deg) saturate(3.4) contrast(1.5) brightness(1.05); }
+  #cam.fx-noir   { filter: grayscale(1) contrast(2) brightness(.95); }
+  #mode { position: fixed; top: 16%; left: 50%; transform: translateX(-50%); z-index: 11;
+          font-size: clamp(30px, 5.5vw, 68px); font-weight: 700; letter-spacing: 14px;
+          color: #fff; text-shadow: 0 0 34px #8dfcff, 0 0 90px rgba(141,252,255,.5);
+          opacity: 0; pointer-events: none; white-space: nowrap; }
+  #mode.pop { animation: modepop 1.5s ease forwards; }
+  @keyframes modepop {
+    0%   { opacity: 0; transform: translateX(-50%) scale(.55); }
+    12%  { opacity: 1; transform: translateX(-50%) scale(1.18); }
+    26%  { transform: translateX(-50%) scale(1); }
+    72%  { opacity: 1; }
+    100% { opacity: 0; transform: translateX(-50%) scale(1.04); }
+  }
   #startOverlay { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 4, .92);
                   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
   #startOverlay h1 { color: #d8fff0; font-size: clamp(20px, 4vw, 34px); font-weight: 700;
@@ -38,6 +58,7 @@
   Gesture: <span class="gest" id="hGest">—</span><br>
   Spread: <b id="hSpread">—</b>
 </div>
+<div id="mode"></div>
 <div id="startOverlay"><h1>AIRBEAMS</h1><p>LASER STRINGS BETWEEN YOUR HANDS</p><button id="startBtn">START</button></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
@@ -118,6 +139,33 @@ let sparks = [];
 function spawnSpark(x, y, hue) {
   sparks.push({ x, y, vx: (Math.random() - .5) * 2.2, vy: (Math.random() - .5) * 2.2 - .4,
                 life: 1, hue });
+}
+
+// ---- 👏 ALKIŞ = LAZER PATLAMASI + REAKSİYON MODU ----
+const MODES = [
+  { cls: 'fx-acid',    name: 'CHEMICAL' },
+  { cls: 'fx-albino',  name: 'ALBINO' },
+  { cls: 'fx-xray',    name: 'X-RAY' },
+  { cls: 'fx-thermal', name: 'THERMAL' },
+  { cls: 'fx-noir',    name: 'NOIR' },
+  { cls: '',           name: 'NORMAL' },
+];
+let twoDist = null, clapV = 0, lastClap = 0, modeIdx = -1;
+let rings = [], flash = 0;
+function clapBoom(x, y) {
+  flash = 0.55;
+  for (let k = 0; k < 5; k++) rings.push({ x, y, r: 10 + k * 22, sp: 15 + k * 5, life: 1, hue: k * 70 });
+  for (let i = 0; i < 80; i++) {                        // radyal kıvılcım patlaması
+    const a = Math.random() * Math.PI * 2, v = 3 + Math.random() * 9;
+    sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, hue: Math.random() * 360 });
+  }
+  modeIdx = (modeIdx + 1) % MODES.length;               // sıradaki reaksiyon
+  const m = MODES[modeIdx];
+  const cam = document.getElementById('cam');
+  cam.className = m.cls;
+  const me = document.getElementById('mode');
+  me.textContent = m.name;
+  me.classList.remove('pop'); void me.offsetWidth; me.classList.add('pop');
 }
 
 // ---- dönen tel-kafes ELMAS (pinch noktasında) ----
@@ -207,6 +255,7 @@ function loop(now) {
     try { mpHands.reset(); } catch (e) {}
   }
   const t = now / 1000;
+  if (hands.length < 2) { twoDist = null; clapV = 0; }
   fpsCnt++;
   if (now - fpsT > 1000) { fpsVal = fpsCnt; fpsCnt = 0; fpsT = now; }
   ctx.clearRect(0, 0, cv.width, cv.height);
@@ -217,7 +266,17 @@ function loop(now) {
   let spreadPct = null, gesture = '—';
   if (hands.length === 2) {
     const [A, B] = hands;
-    spreadPct = Math.round(Math.hypot(A.px(9) - B.px(9), A.py(9) - B.py(9)) / innerWidth * 100);
+    const ddPx = Math.hypot(A.px(9) - B.px(9), A.py(9) - B.py(9));
+    spreadPct = Math.round(ddPx / innerWidth * 100);
+    // 👏 ALKIŞ: avuçlar hızla birleşince patlama + reaksiyon
+    if (twoDist !== null) {
+      clapV = clapV * 0.5 + (twoDist - ddPx) * 0.5;
+      if (ddPx < Math.max(120, innerWidth * 0.09) && clapV > 14 && now - lastClap > 1200) {
+        lastClap = now;
+        clapBoom((A.px(9) + B.px(9)) / 2, (A.py(9) + B.py(9)) / 2);
+      }
+    }
+    twoDist = ddPx;
     const pincher = A.pinch ? A : B.pinch ? B : null;
     if (pincher) {
       gesture = 'PINCH';
@@ -246,8 +305,24 @@ function loop(now) {
     ctx.fillStyle = `hsl(${s.hue}, 100%, 72%)`;
     ctx.beginPath(); ctx.arc(s.x, s.y, 1.2 + s.life * 1.6, 0, 7); ctx.fill();
   }
+  // patlama halkaları (gökkuşağı, genişleyen)
+  rings = rings.filter(r => r.life > 0);
+  for (const r of rings) {
+    r.r += r.sp; r.life -= 0.035;
+    ctx.globalAlpha = r.life * .9;
+    ctx.strokeStyle = `hsl(${(r.hue + t * 90) % 360}, 100%, 65%)`;
+    ctx.lineWidth = 2 + r.life * 6;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 7); ctx.stroke();
+  }
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
+  if (flash > 0) {                                       // patlama flaşı
+    ctx.globalAlpha = flash;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.globalAlpha = 1;
+    flash -= 0.055;
+  }
 
   hud(spreadPct, gesture);
 }
