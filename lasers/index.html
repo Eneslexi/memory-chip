@@ -72,8 +72,10 @@ function smoothLandmarks(raw) {
       out.push(lm.map((p, j) => {
         const q = prev[j];
         const d = Math.hypot(p.x - q.x, p.y - q.y);
-        const a = Math.min(0.8, 0.12 + d * 26);
-        return { x: q.x + (p.x - q.x) * a, y: q.y + (p.y - q.y) * a };
+        // lazerler için ÇEVİK ayar: hafif yumuşatma + hareket yönüne öngörü (gecikme telafisi)
+        const a = Math.min(0.92, 0.3 + d * 40);
+        const nx = q.x + (p.x - q.x) * a, ny = q.y + (p.y - q.y) * a;
+        return { x: nx + (nx - q.x) * 0.45, y: ny + (ny - q.y) * 0.45 };
       }));
     }
   }
