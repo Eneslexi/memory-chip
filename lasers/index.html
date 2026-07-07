@@ -99,8 +99,8 @@ function smoothLandmarks(raw) {
         const d = Math.hypot(p.x - q.x, p.y - q.y);
         // ÇEVİK + SAKİN: duruşta güçlü filtre ve SIFIR öngörü (titremez);
         // hızlı harekette filtre gevşer, öngörü devreye girer (gecikmez)
-        const a = Math.min(0.9, 0.15 + d * 35);
-        const L = Math.min(0.5, d * 28);
+        const a = Math.min(0.88, 0.18 + d * 32);
+        const L = Math.min(0.22, d * 14);   // hafif öngörü: gecikmeyi kırpar, önüne fırlamaz
         const nx = q.x + (p.x - q.x) * a, ny = q.y + (p.y - q.y) * a;
         return { x: nx + (nx - q.x) * L, y: ny + (ny - q.y) * L };
       });
@@ -350,12 +350,12 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const video = document.getElementById('cam');
   const mp = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
   mpHands = mp;
-  mp.setOptions({ maxNumHands: 2, modelComplexity: 0,
-                  minDetectionConfidence: 0.5, minTrackingConfidence: 0.4 });
+  mp.setOptions({ maxNumHands: 2, modelComplexity: IS_MOBILE ? 0 : 1,
+                  minDetectionConfidence: 0.6, minTrackingConfidence: 0.55 });
   mp.onResults(onResults);
   new Camera(video, {
     onFrame: async () => await mp.send({ image: video }),
-    width: 640, height: 360, facingMode: 'user'   // düşük çözünürlük = hızlı çıkarım = güçlü takip
+    width: 800, height: 450, facingMode: 'user'   // doğruluk/hız dengesi
   }).start();
   requestAnimationFrame(loop);
 });
