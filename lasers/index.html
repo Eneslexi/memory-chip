@@ -76,21 +76,25 @@ const HAND_CONN = [
 ];
 
 // ---- el titreme filtresi: uyarlanabilir EMA (duruşta sabit, hızlıda çevik) ----
-let smoothHands = [];
+let tracked = [];   // {lm, seen} — HOŞGÖRÜ: anlık algı kaybında el ~300ms yaşar, ışın sönmez
+let smoothHands = []; // (bekçi temizliği için takma ad)
 function smoothLandmarks(raw) {
-  const out = [], used = new Set();
+  const nowT = performance.now();
+  const used = new Set();
   for (const lm of raw) {
-    let best = null, bd = 0.25;
-    smoothHands.forEach((sh, i) => {
+    let best = null, bd = 0.3;
+    tracked.forEach((tr, i) => {
       if (used.has(i)) return;
-      const d = Math.hypot(sh[0].x - lm[0].x, sh[0].y - lm[0].y);
+      const d = Math.hypot(tr.lm[0].x - lm[0].x, tr.lm[0].y - lm[0].y);
       if (d < bd) { bd = d; best = i; }
     });
-    if (best === null) out.push(lm.map(p => ({ x: p.x, y: p.y })));
-    else {
+    if (best === null) {
+      tracked.push({ lm: lm.map(p => ({ x: p.x, y: p.y })), seen: nowT });
+      used.add(tracked.length - 1);
+    } else {
       used.add(best);
-      const prev = smoothHands[best];
-      out.push(lm.map((p, j) => {
+      const prev = tracked[best].lm;
+      tracked[best].lm = lm.map((p, j) => {
         const q = prev[j];
         const d = Math.hypot(p.x - q.x, p.y - q.y);
         // ÇEVİK + SAKİN: duruşta güçlü filtre ve SIFIR öngörü (titremez);
@@ -99,11 +103,14 @@ function smoothLandmarks(raw) {
         const L = Math.min(0.5, d * 28);
         const nx = q.x + (p.x - q.x) * a, ny = q.y + (p.y - q.y) * a;
         return { x: nx + (nx - q.x) * L, y: ny + (ny - q.y) * L };
-      }));
+      });
+      tracked[best].seen = nowT;
     }
   }
-  smoothHands = out;
-  return out;
+  tracked = tracked.filter(tr => nowT - tr.seen < 300);  // 300ms yaşam desteği
+  if (tracked.length > 2) tracked = tracked.slice(-2);
+  smoothHands = tracked;
+  return tracked.map(tr => tr.lm);
 }
 
 // ---- jest durumu ----
@@ -249,7 +256,7 @@ function loop(now) {
   if (now - lastDraw < 15) return;          // çizimi ~60fps'e sabitle: takibe nefes
   lastDraw = now;
   // BEKÇİ: el verisi kesilirse hayalet lazerler ekranda KALMASIN
-  if (hands.length && performance.now() - lastRes > 600) { hands = []; smoothHands = []; }
+  if (hands.length && performance.now() - lastRes > 600) { hands = []; smoothHands = []; tracked = []; }
   if (mpHands && performance.now() - lastRes > 3000) {   // motor sustu: resetle
     lastRes = performance.now();
     try { mpHands.reset(); } catch (e) {}
@@ -334,7 +341,7 @@ document.getElementById('startBtn').addEventListener('click', async () => {
   const mp = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
   mpHands = mp;
   mp.setOptions({ maxNumHands: 2, modelComplexity: 0,
-                  minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+                  minDetectionConfidence: 0.5, minTrackingConfidence: 0.4 });
   mp.onResults(onResults);
   new Camera(video, {
     onFrame: async () => await mp.send({ image: video }),
